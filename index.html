@@ -412,25 +412,26 @@
             showSection(2);
         }
 
-        function showSection(num) {
-            document.querySelectorAll('.section').forEach(section => {
-                section.classList.remove('active');
-            });
-            const targetSection = document.getElementById(`section${num}`);
-            targetSection.classList.add('active');
-            
-            if (num === 3) {
-                loadStoneInfo();
+function showSection(num) {
+    window.scrollTo(0, 0);  // Add this line
+    document.querySelectorAll('.section').forEach(section => {
+        section.classList.remove('active');
+    });
+    const targetSection = document.getElementById(`section${num}`);
+    targetSection.classList.add('active');
+    
+    if (num === 3) {
+        loadStoneInfo();
+    }
+    
+    if (num === 4) {
+        setTimeout(() => {
+            if (currentMap) {
+                currentMap.invalidateSize();
             }
-            
-            if (num === 4) {
-                setTimeout(() => {
-                    if (currentMap) {
-                        currentMap.invalidateSize();
-                    }
-                }, 100);
-            }
-        }
+        }, 100);
+    }
+}
 
         function updateContent() {
             const t = translations[currentLanguage];
