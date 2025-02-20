@@ -682,24 +682,31 @@ function showSection(num) {
                     }
                 }
 
-                if (coordinates.length > 0) {
-                    const path = L.polyline(coordinates, {
-                        color: '#3498db',
-                        weight: 3,
-                        opacity: 0.8
-                    }).addTo(currentMap);
+if (coordinates.length > 0) {
+    // Create a feature group to hold all map elements
+    const featureGroup = L.featureGroup().addTo(currentMap);
+    
+    // Add the path to the feature group
+    const path = L.polyline(coordinates, {
+        color: '#3498db',
+        weight: 3,
+        opacity: 0.8
+    });
+    featureGroup.addLayer(path);
 
-                    journeys.forEach((journey) => {
-                        const marker = L.marker([journey.coords.lat, journey.coords.lon])
-                            .addTo(currentMap)
-                            .bindPopup(`<b>${t.foundIn} ${journey.location}</b><br>${journey.message}`);
-                    });
+    // Add markers to the feature group
+    journeys.forEach((journey) => {
+        const marker = L.marker([journey.coords.lat, journey.coords.lon])
+            .bindPopup(`<b>${t.foundIn} ${journey.location}</b><br>${journey.message}`);
+        featureGroup.addLayer(marker);
+    });
 
-                    const bounds = path.getBounds();
-                    currentMap.fitBounds(bounds, { 
-                        padding: [100, 100],
-                        maxZoom: 8
-                    });
+    // Fit map to the feature group's bounds with padding
+    currentMap.fitBounds(featureGroup.getBounds(), {
+        padding: [50, 50],
+        animate: true
+    });
+}
                     
                     setTimeout(() => {
                         currentMap.invalidateSize();
