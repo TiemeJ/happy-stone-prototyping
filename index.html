@@ -573,189 +573,178 @@
         }
 
 async function submitStoneJourney() {
-    const location = document.getElementById('location').value;
-    const message = document.getElementById('message').value;
-    const acquisition = document.querySelector('input[name="acquisition"]:checked')?.value;
-    const photoFile = document.getElementById('photoInput').files[0];
-    
-    if (!location || !message || !acquisition) {
-        alert('Please fill in all required fields');
-        return;
-    }
-    
     try {
-        // Show some loading state
-        document.getElementById('submitButton').disabled = true;
+        const location = document.getElementById('location').value;
+        const message = document.getElementById('message').value;
+        const acquisition = document.querySelector('input[name="acquisition"]:checked')?.value;
+        const photoFile = document.getElementById('photoInput')?.files[0];
+        const submitButton = document.getElementById('submitButton');
+        
+        if (!location || !message || !acquisition) {
+            alert('Please fill in all required fields');
+            return;
+        }
+        
+        // Disable submit button
+        if (submitButton) {
+            submitButton.disabled = true;
+        }
         
         const coords = await getCoordinates(location);
         let photoUrl = null;
         
-        // Upload photo if one was selected
+        // Handle photo upload if present
         if (photoFile) {
-            const progressBar = document.querySelector('.upload-progress');
-            const progressBarFill = document.querySelector('.upload-progress-bar');
-            progressBar.style.display = 'block';
-            
-            // Create a unique filename
-            const filename = `${stoneId}_${Date.now()}_${photoFile.name}`;
-            const photoRef = storage.ref(`stone_photos/${filename}`);
-            
-            // Create upload task
-            const uploadTask = photoRef.put(photoFile);
-            
-            // Wait for the upload to complete
-            await new Promise((resolve, reject) => {
-                uploadTask.on('state_changed', 
-                    (snapshot) => {
-                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                        progressBarFill.style.width = progress + '%';
-                    },
-                    (error) => reject(error),
-                    () => resolve()
-                );
-            });
-            
-            // Get the download URL after upload is complete
-            photoUrl = await photoRef.getDownloadURL();
+            try {
+                const filename = `${stoneId}_${Date.now()}_${photoFile.name}`;
+                const photoRef = storage.ref(`stone_photos/${filename}`);
+                const uploadTask = photoRef.put(photoFile);
+                
+                // Upload the photo
+                await uploadTask;
+                photoUrl = await photoRef.getDownloadURL();
+            } catch (uploadError) {
+                console.error("Error uploading photo:", uploadError);
+                throw uploadError;
+            }
         }
         
-        // Create the journey document data
-        const journeyData = {
+        // Save to Firestore
+        await db.collection('stones').doc(stoneId).collection('journeys').add({
             location: location,
             message: message,
             acquisition: acquisition,
+            photoUrl: photoUrl,
             coordinates: coords ? {lat: coords.lat, lon: coords.lon} : null,
             timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        };
-
-        // Only add photoUrl if we have one
-        if (photoUrl) {
-            journeyData.photoUrl = photoUrl;
-        }
-        
-        // Add to Firestore
-        await db.collection('stones').doc(stoneId).collection('journeys').add(journeyData);
+        });
         
         // Success! Move to next section
         showSection(4);
-        loadJourneys();
+        await loadJourneys();  // Wait for journeys to load
         
     } catch (error) {
         console.error("Error submitting journey:", error);
         alert('There was an error submitting your story. Please try again.');
     } finally {
-        // Re-enable the submit button
-        document.getElementById('submitButton').disabled = false;
-        
-        // Hide progress bar
-        const progressBar = document.querySelector('.upload-progress');
-        if (progressBar) {
-            progressBar.style.display = 'none';
+        // Re-enable submit button
+        const submitButton = document.getElementById('submitButton');
+        if (submitButton) {
+            submitButton.disabled = false;
         }
     }
 }
-        async function loadJourneys() {
-            const journeyCards = document.getElementById('journeyCards');
-            const t = translations[currentLanguage];
-            journeyCards.innerHTML = '';
-            
-            try {
-                const snapshot = await db.collection('stones').doc(stoneId)
-                    .collection('journeys')
-                    .orderBy('timestamp', 'desc')
-                    .get();
 
-                document.getElementById('journeyStats').innerHTML = t.journeyCount.replace('{count}', snapshot.size);
+async function loadJourneys() {
+    const journeyCards = document.getElementById('journeyCards');
+    const t = translations[currentLanguage];
+    
+    if (!journeyCards) {
+        console.error("Journey cards container not found");
+        return;
+    }
+    
+    journeyCards.innerHTML = '';
+    
+    try {
+        const snapshot = await db.collection('stones').doc(stoneId)
+            .collection('journeys')
+            .orderBy('timestamp', 'desc')
+            .get();
+
+        if (document.getElementById('journeyStats')) {
+            document.getElementById('journeyStats').innerHTML = t.journeyCount.replace('{count}', snapshot.size);
+        }
+        
+        if (document.getElementById('mapTitle')) {
+            document.getElementById('mapTitle').textContent = t.mapTitle;
+        }
+
+        // Remove existing map if it exists
+        if (window.currentMap) {
+            window.currentMap.remove();
+        }
+
+        // Initialize new map
+        const mapContainer = document.getElementById('journeyMap');
+        if (mapContainer) {
+            window.currentMap = L.map('journeyMap', {
+                minZoom: 2,
+                maxZoom: 19,
+                scrollWheelZoom: true,
+                worldCopyJump: true
+            }).setView([0, 0], 2);
+
+            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '© OpenStreetMap'
+            }).addTo(window.currentMap);
+
+            const journeys = [];
+            const coordinates = [];
+
+            const orderedDocs = [...snapshot.docs].reverse();
+            for (const doc of orderedDocs) {
+                const data = doc.data();
                 
-                document.getElementById('mapTitle').textContent = t.mapTitle;
-                if (currentMap) {
-                    currentMap.remove();
+                let coords = data.coordinates;
+                if (!coords && data.location) {
+                    coords = await getCoordinates(data.location);
                 }
-
-                currentMap = L.map('journeyMap', {
-                    minZoom: 2,
-                    maxZoom: 19,
-                    scrollWheelZoom: true,
-                    worldCopyJump: true
-                }).setView([0, 0], 2);
-
-                L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    maxZoom: 19,
-                    attribution: '© OpenStreetMap'
-                }).addTo(currentMap);
-
-                const journeys = [];
-                const coordinates = [];
-
-                const orderedDocs = [...snapshot.docs].reverse();
-                for (const doc of orderedDocs) {
-                    const data = doc.data();
-                    
-                    let coords = data.coordinates;
-                    if (!coords && data.location) {
-                        coords = await getCoordinates(data.location);
-                    }
-                    
-                    if (coords) {
-                        coordinates.push([coords.lat, coords.lon]);
-                        journeys.push({
-                            ...data,
-                            coords: coords
-                        });
-                    }
-                }
-
-                if (coordinates.length > 0) {
-                    const path = L.polyline(coordinates, {
-                        color: '#3498db',
-                        weight: 3,
-                        opacity: 0.8
-                    }).addTo(currentMap);
-
-                    journeys.forEach((journey) => {
-                        const marker = L.marker([journey.coords.lat, journey.coords.lon])
-                            .addTo(currentMap)
-                            .bindPopup(`<b>${t.foundIn} ${journey.location}</b><br>${journey.message}`);
+                
+                if (coords) {
+                    coordinates.push([coords.lat, coords.lon]);
+                    journeys.push({
+                        ...data,
+                        coords: coords
                     });
-
-                    const bounds = path.getBounds();
-                    currentMap.fitBounds(bounds, { 
-                        padding: [100, 100],
-                        maxZoom: 8
-                    });
-                    
-                    setTimeout(() => {
-                        currentMap.invalidateSize();
-                    }, 100);
-                    
-                    setTimeout(() => {
-                        currentMap.invalidateSize();
-                    }, 500);
                 }
+            }
+
+            if (coordinates.length > 0) {
+                const path = L.polyline(coordinates, {
+                    color: '#3498db',
+                    weight: 3,
+                    opacity: 0.8
+                }).addTo(window.currentMap);
 
                 journeys.forEach((journey) => {
-                    const date = journey.timestamp ? journey.timestamp.toDate().toLocaleDateString() : 'Recent';
-                    const card = document.createElement('div');
-                    card.className = 'card';
-                    
-                    let photoHtml = '';
-                    if (journey.photoURL) {
-                        photoHtml = `<img src="${journey.photoURL}" alt="Stone location" class="journey-photo">`;
-                    }
-                    
-                    card.innerHTML = `
-                        <h3>📍 ${t.foundIn} ${journey.location}</h3>
-                        ${photoHtml}
-                        <p>${journey.message}</p>
-                        <p class="timestamp">${t.sharedOn} ${date}</p>
-                    `;
-                    journeyCards.appendChild(card);
+                    const marker = L.marker([journey.coords.lat, journey.coords.lon])
+                        .addTo(window.currentMap)
+                        .bindPopup(`<b>${t.foundIn} ${journey.location}</b><br>${journey.message}`);
                 });
 
-            } catch (error) {
-                console.error("Error loading journeys:", error);
+                const bounds = path.getBounds();
+                window.currentMap.fitBounds(bounds, { 
+                    padding: [100, 100],
+                    maxZoom: 8
+                });
             }
         }
+
+        // Display journey cards
+        journeys.forEach((journey) => {
+            const date = journey.timestamp ? journey.timestamp.toDate().toLocaleDateString() : 'Recent';
+            const card = document.createElement('div');
+            card.className = 'card';
+            
+            // Add photo to card if available
+            const photoHtml = journey.photoUrl ? 
+                `<img src="${journey.photoUrl}" alt="Stone location" class="card-image">` : '';
+            
+            card.innerHTML = `
+                ${photoHtml}
+                <h3>📍 ${t.foundIn} ${journey.location}</h3>
+                <p>${journey.message}</p>
+                <p class="timestamp">${t.sharedOn} ${date}</p>
+            `;
+            journeyCards.appendChild(card);
+        });
+
+    } catch (error) {
+        console.error("Error loading journeys:", error);
+    }
+}
 
         if (!stoneId) {
             alert('Please scan the QR code on your stone.');
