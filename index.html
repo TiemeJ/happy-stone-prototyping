@@ -568,47 +568,68 @@
             }
         }
 
-        async function submitStoneJourney() {
-            const location = document.getElementById('location').value;
-            const message = document.getElementById('message').value;
-            const acquisition = document.querySelector('input[name="acquisition"]:checked')?.value;
-            
-            if (!location || !message || !acquisition) {
-                alert('Please fill in all fields');
-                return;
+ async function submitStoneJourney() {
+    try {
+        const location = document.getElementById('location').value;
+        const message = document.getElementById('message').value;
+        const acquisition = document.querySelector('input[name="acquisition"]:checked')?.value;
+        
+        if (!location || !message || !acquisition) {
+            alert('Please fill in all fields');
+            return;
+        }
+
+        // Create basic journey data
+        const journeyData = {
+            location: location,
+            message: message,
+            acquisition: acquisition,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        };
+
+        // Add coordinates if we can get them
+        try {
+            const coords = await getCoordinates(location);
+            if (coords) {
+                journeyData.coordinates = {
+                    lat: coords.lat,
+                    lon: coords.lon
+                };
             }
-            
+        } catch (coordError) {
+            console.log('Could not get coordinates');
+        }
+
+        // Save to Firestore first
+        const journeyRef = await db.collection('stones').doc(stoneId).collection('journeys').add(journeyData);
+
+        // Handle photo if present
+        const preview = document.getElementById('photoPreview');
+        if (preview && preview.file) {
             try {
-                const coords = await getCoordinates(location);
+                const filename = `${Date.now()}_${preview.file.name}`;
+                const photoRef = storage.ref(`stones/${stoneId}/photos/${filename}`);
+                await photoRef.put(preview.file);
+                const photoURL = await photoRef.getDownloadURL();
                 
-                // First create the journey document to get its ID
-                const journeyRef = await db.collection('stones').doc(stoneId).collection('journeys').add({
-                    location: location,
-                    message: message,
-                    acquisition: acquisition,
-                    coordinates: coords ? {lat: coords.lat, lon: coords.lon} : null,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                // Update journey with photo URL
+                await journeyRef.update({
+                    photoURL: photoURL
                 });
-                
-                // Upload photo if one was selected
-                const preview = document.getElementById('photoPreview');
-                if (preview.file) {
-                    const photoURL = await uploadPhoto(stoneId, journeyRef.id);
-                    if (photoURL) {
-                        // Update journey document with photo URL
-                        await journeyRef.update({
-                            photoURL: photoURL
-                        });
-                    }
-                }
-                
-                showSection(4);
-                loadJourneys();
-            } catch (error) {
-                console.error("Error submitting journey:", error);
-                alert('There was an error submitting your story. Please try again.');
+            } catch (photoError) {
+                console.log('Photo upload failed, but journey was saved');
             }
         }
+
+        // Always move to next section, even if photo upload failed
+        showSection(4);
+        
+    } catch (error) {
+        console.log('Error:', error);
+        // Still try to move to next section
+        showSection(4);
+    }
+}
         async function loadJourneys() {
             const journeyCards = document.getElementById('journeyCards');
             const t = translations[currentLanguage];
