@@ -710,15 +710,6 @@ if (coordinates.length > 0) {
         });
     }, 300);
 }
-                    
-                    setTimeout(() => {
-                        currentMap.invalidateSize();
-                    }, 100);
-                    
-                    setTimeout(() => {
-                        currentMap.invalidateSize();
-                    }, 500);
-                }
 
                 journeys.forEach((journey) => {
                     const date = journey.timestamp ? journey.timestamp.toDate().toLocaleDateString() : 'Recent';
