@@ -701,11 +701,14 @@ if (coordinates.length > 0) {
         featureGroup.addLayer(marker);
     });
 
-    // Fit map to the feature group's bounds with padding
-    currentMap.fitBounds(featureGroup.getBounds(), {
-        padding: [50, 50],
-        animate: true
-    });
+    // Use a single timeout to handle both map invalidation and bounds fitting
+    setTimeout(() => {
+        currentMap.invalidateSize();
+        currentMap.fitBounds(featureGroup.getBounds(), {
+            padding: [50, 50],
+            animate: true
+        });
+    }, 300);
 }
                     
                     setTimeout(() => {
