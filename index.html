@@ -704,9 +704,13 @@ if (coordinates.length > 0) {
     // Add the feature group to the map
     featureGroup.addTo(currentMap);
 
-    // Get the bounds and fit the map to them
+    // Get the bounds and fit the map to them with padding
     const bounds = featureGroup.getBounds();
-    currentMap.fitBounds(bounds);
+    currentMap.fitBounds(bounds, {
+        padding: [30, 30],     // Add a small padding around the bounds
+        maxZoom: 12,          // Prevent zooming in too far
+        animate: false        // Disable animation for smoother initial load
+    });
 }
 
                 journeys.forEach((journey) => {
