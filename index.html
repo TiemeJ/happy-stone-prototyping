@@ -125,9 +125,6 @@
             margin: 20px 0;
             border-radius: 15px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            opacity: 1 !important;
-            z-index: 1;
-            display: block !important;
         }
         .map-container {
             margin-top: 30px;
@@ -135,8 +132,6 @@
             background: #f8f9fa;
             border-radius: 15px;
             border-left: 5px solid #84fab0;
-            visibility: visible !important;
-            opacity: 1 !important;
         }
         .map-title {
             text-align: center;
@@ -154,19 +149,6 @@
         .share-button {
             padding: 8px 16px;
             font-size: 14px;
-            background: linear-gradient(to right, #84fab0, #8fd3f4);
-            color: #2c3e50;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .share-button:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-        }
-        #section4 {
-            opacity: 1 !important;
         }
         .radio-group {
             margin: 15px 0;
@@ -193,6 +175,7 @@
             margin: 0;
             cursor: pointer;
         }
+        /* Photo upload styles */
         .photo-upload {
             margin: 20px 0;
             text-align: center;
@@ -306,6 +289,7 @@
                     <textarea id="message" required></textarea>
                 </div>
 
+                <!-- Photo upload section -->
                 <div class="form-group">
                     <label id="photoLabel"></label>
                     <div class="photo-upload">
@@ -419,6 +403,57 @@
             }
         };
 
+        function selectLanguage(lang) {
+            currentLanguage = lang;
+            document.querySelectorAll('.lang-title').forEach(el => {
+                el.textContent = translations[lang].title;
+            });
+            updateContent();
+            showSection(2);
+        }
+
+function showSection(num) {
+    window.scrollTo(0, 0);  // Add this line
+    document.querySelectorAll('.section').forEach(section => {
+        section.classList.remove('active');
+    });
+    const targetSection = document.getElementById(`section${num}`);
+    targetSection.classList.add('active');
+    
+    if (num === 3) {
+        loadStoneInfo();
+    }
+    
+    if (num === 4) {
+        setTimeout(() => {
+            if (currentMap) {
+                currentMap.invalidateSize();
+            }
+        }, 100);
+    }
+}
+
+        function updateContent() {
+            const t = translations[currentLanguage];
+            document.getElementById('explanation').innerHTML = t.explanation;
+            document.getElementById('continueButton').textContent = t.continue;
+            document.getElementById('locationLabel').textContent = t.locationLabel;
+            document.getElementById('location').placeholder = t.locationPlaceholder;
+            document.getElementById('shareLocationText').textContent = t.shareLocationText;
+            document.getElementById('shareLocationButton').textContent = t.shareLocationButton;
+            document.getElementById('messageLabel').textContent = t.messageLabel;
+            document.getElementById('submitButton').textContent = t.submit;
+            document.getElementById('nextSteps').innerHTML = t.nextSteps;
+            document.getElementById('photoLabel').textContent = t.photoLabel;
+            document.getElementById('uploadButtonText').textContent = t.uploadButton;
+            
+            // Update acquisition field translations
+            document.getElementById('acquisitionLabel').textContent = t.acquisitionLabel;
+            document.getElementById('foundLabel').textContent = t.acquisitionFound;
+            document.getElementById('strangerLabel').textContent = t.acquisitionStranger;
+            document.getElementById('knownLabel').textContent = t.acquisitionKnown;
+        }
+
         // Photo handling
         document.getElementById('photoInput').addEventListener('change', handlePhotoSelect);
         
@@ -472,56 +507,6 @@
             });
         }
 
-        function selectLanguage(lang) {
-            currentLanguage = lang;
-            document.querySelectorAll('.lang-title').forEach(el => {
-                el.textContent = translations[lang].title;
-            });
-            updateContent();
-            showSection(2);
-        }
-
-        function showSection(num) {
-            document.querySelectorAll('.section').forEach(section => {
-                section.classList.remove('active');
-            });
-            const targetSection = document.getElementById(`section${num}`);
-            targetSection.classList.add('active');
-            
-            if (num === 3) {
-                loadStoneInfo();
-            }
-            
-            if (num === 4) {
-                setTimeout(() => {
-                    if (currentMap) {
-                        currentMap.invalidateSize();
-                    }
-                }, 100);
-            }
-        }
-
-        function updateContent() {
-            const t = translations[currentLanguage];
-            document.getElementById('explanation').innerHTML = t.explanation;
-            document.getElementById('continueButton').textContent = t.continue;
-            document.getElementById('locationLabel').textContent = t.locationLabel;
-            document.getElementById('location').placeholder = t.locationPlaceholder;
-            document.getElementById('shareLocationText').textContent = t.shareLocationText;
-            document.getElementById('shareLocationButton').textContent = t.shareLocationButton;
-            document.getElementById('messageLabel').textContent = t.messageLabel;
-            document.getElementById('submitButton').textContent = t.submit;
-            document.getElementById('nextSteps').innerHTML = t.nextSteps;
-            document.getElementById('photoLabel').textContent = t.photoLabel;
-            document.getElementById('uploadButtonText').textContent = t.uploadButton;
-            
-            // Update acquisition field translations
-            document.getElementById('acquisitionLabel').textContent = t.acquisitionLabel;
-            document.getElementById('foundLabel').textContent = t.acquisitionFound;
-            document.getElementById('strangerLabel').textContent = t.acquisitionStranger;
-            document.getElementById('knownLabel').textContent = t.acquisitionKnown;
-        }
-
         function shareLocation() {
             if ("geolocation" in navigator) {
                 navigator.geolocation.getCurrentPosition(
@@ -546,23 +531,6 @@
             }
         }
 
-        async function getCoordinates(locationString) {
-            try {
-                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locationString)}`);
-                const data = await response.json();
-                if (data.length > 0) {
-                    return {
-                        lat: parseFloat(data[0].lat),
-                        lon: parseFloat(data[0].lon)
-                    };
-                }
-                return null;
-            } catch (error) {
-                console.error("Error geocoding location:", error);
-                return null;
-            }
-        }
-
         async function loadStoneInfo() {
             try {
                 const stoneDoc = await db.collection('stones').doc(stoneId).get();
@@ -584,48 +552,85 @@
             }
         }
 
-        async function submitStoneJourney() {
-            const location = document.getElementById('location').value;
-            const message = document.getElementById('message').value;
-            const acquisition = document.querySelector('input[name="acquisition"]:checked')?.value;
-            
-            if (!location || !message || !acquisition) {
-                alert('Please fill in all fields');
-                return;
-            }
-            
+        async function getCoordinates(locationString) {
             try {
-                const coords = await getCoordinates(location);
-                
-                // First create the journey document to get its ID
-                const journeyRef = await db.collection('stones').doc(stoneId).collection('journeys').add({
-                    location: location,
-                    message: message,
-                    acquisition: acquisition,
-                    coordinates: coords ? {lat: coords.lat, lon: coords.lon} : null,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                
-                // Upload photo if one was selected
-                const preview = document.getElementById('photoPreview');
-                if (preview.file) {
-                    const photoURL = await uploadPhoto(stoneId, journeyRef.id);
-                    if (photoURL) {
-                        // Update journey document with photo URL
-                        await journeyRef.update({
-                            photoURL: photoURL
-                        });
-                    }
+                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locationString)}`);
+                const data = await response.json();
+                if (data.length > 0) {
+                    return {
+                        lat: parseFloat(data[0].lat),
+                        lon: parseFloat(data[0].lon)
+                    };
                 }
-                
-                showSection(4);
-                loadJourneys();
+                return null;
             } catch (error) {
-                console.error("Error submitting journey:", error);
-                alert('There was an error submitting your story. Please try again.');
+                console.error("Error geocoding location:", error);
+                return null;
             }
         }
 
+ async function submitStoneJourney() {
+    try {
+        const location = document.getElementById('location').value;
+        const message = document.getElementById('message').value;
+        const acquisition = document.querySelector('input[name="acquisition"]:checked')?.value;
+        
+        if (!location || !message || !acquisition) {
+            alert('Please fill in all fields');
+            return;
+        }
+
+        // Create basic journey data
+        const journeyData = {
+            location: location,
+            message: message,
+            acquisition: acquisition,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        };
+
+        // Add coordinates if we can get them
+        try {
+            const coords = await getCoordinates(location);
+            if (coords) {
+                journeyData.coordinates = {
+                    lat: coords.lat,
+                    lon: coords.lon
+                };
+            }
+        } catch (coordError) {
+            console.log('Could not get coordinates');
+        }
+
+        // Save to Firestore first
+        const journeyRef = await db.collection('stones').doc(stoneId).collection('journeys').add(journeyData);
+
+        // Handle photo if present
+        const preview = document.getElementById('photoPreview');
+        if (preview && preview.file) {
+            try {
+                const filename = `${Date.now()}_${preview.file.name}`;
+                const photoRef = storage.ref(`stones/${stoneId}/photos/${filename}`);
+                await photoRef.put(preview.file);
+                const photoURL = await photoRef.getDownloadURL();
+                
+                // Update journey with photo URL
+                await journeyRef.update({
+                    photoURL: photoURL
+                });
+            } catch (photoError) {
+                console.log('Photo upload failed, but journey was saved');
+            }
+        }
+
+        // Always move to next section, even if photo upload failed
+        showSection(4);
+        
+    } catch (error) {
+        console.log('Error:', error);
+        // Still try to move to next section
+        showSection(4);
+    }
+}
         async function loadJourneys() {
             const journeyCards = document.getElementById('journeyCards');
             const t = translations[currentLanguage];
@@ -638,8 +643,8 @@
                     .get();
 
                 document.getElementById('journeyStats').innerHTML = t.journeyCount.replace('{count}', snapshot.size);
+                
                 document.getElementById('mapTitle').textContent = t.mapTitle;
-
                 if (currentMap) {
                     currentMap.remove();
                 }
@@ -656,16 +661,14 @@
                     attribution: '© OpenStreetMap'
                 }).addTo(currentMap);
 
-                const coordinates = [];
                 const journeys = [];
+                const coordinates = [];
 
-                // Create chronological array for map plotting
-                const chronologicalDocs = [...snapshot.docs].reverse();
-                
-                for (const doc of chronologicalDocs) {
+                const orderedDocs = [...snapshot.docs];
+                for (const doc of orderedDocs) {
                     const data = doc.data();
-                    let coords = data.coordinates;
                     
+                    let coords = data.coordinates;
                     if (!coords && data.location) {
                         coords = await getCoordinates(data.location);
                     }
@@ -679,37 +682,36 @@
                     }
                 }
 
-                if (coordinates.length > 0) {
-                    const path = L.polyline(coordinates, {
-                        color: '#3498db',
-                        weight: 3,
-                        opacity: 0.8
-                    }).addTo(currentMap);
+if (coordinates.length > 0) {
+    // Create a feature group to hold all map elements
+    const featureGroup = L.featureGroup().addTo(currentMap);
+    
+    // Add the path to the feature group
+    const path = L.polyline(coordinates, {
+        color: '#3498db',
+        weight: 3,
+        opacity: 0.8
+    });
+    featureGroup.addLayer(path);
 
-                    journeys.forEach((journey) => {
-                        const marker = L.marker([journey.coords.lat, journey.coords.lon])
-                            .addTo(currentMap)
-                            .bindPopup(`<b>${t.foundIn} ${journey.location}</b><br>${journey.message}`);
-                    });
+    // Add markers to the feature group
+    journeys.forEach((journey) => {
+        const marker = L.marker([journey.coords.lat, journey.coords.lon])
+            .bindPopup(`<b>${t.foundIn} ${journey.location}</b><br>${journey.message}`);
+        featureGroup.addLayer(marker);
+    });
 
-const bounds = path.getBounds();
-                    currentMap.fitBounds(bounds, { 
-                        padding: [100, 100],
-                        maxZoom: 8
-                    });
-                    
-                    setTimeout(() => {
-                        currentMap.invalidateSize();
-                    }, 100);
-                    
-                    setTimeout(() => {
-                        currentMap.invalidateSize();
-                    }, 500);
-                }
+    // Use a single timeout to handle both map invalidation and bounds fitting
+    setTimeout(() => {
+        currentMap.invalidateSize();
+        currentMap.fitBounds(featureGroup.getBounds(), {
+            padding: [50, 50],
+            animate: true
+        });
+    }, 300);
+}
 
-                // Display journey cards in reverse chronological order (most recent first)
-                snapshot.docs.forEach((doc) => {
-                    const journey = doc.data();
+                journeys.forEach((journey) => {
                     const date = journey.timestamp ? journey.timestamp.toDate().toLocaleDateString() : 'Recent';
                     const card = document.createElement('div');
                     card.className = 'card';
