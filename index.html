@@ -632,116 +632,124 @@ function showSection(num) {
     }
 }
         async function loadJourneys() {
-            const journeyCards = document.getElementById('journeyCards');
-            const t = translations[currentLanguage];
-            journeyCards.innerHTML = '';
-            
-            try {
-                const snapshot = await db.collection('stones').doc(stoneId)
-                    .collection('journeys')
-                    .orderBy('timestamp', 'desc')
-                    .get();
-
-                document.getElementById('journeyStats').innerHTML = t.journeyCount.replace('{count}', snapshot.size);
-                
-                document.getElementById('mapTitle').textContent = t.mapTitle;
-                if (currentMap) {
-                    currentMap.remove();
-                }
-
-                currentMap = L.map('journeyMap', {
-                    minZoom: 2,
-                    maxZoom: 19,
-                    scrollWheelZoom: true,
-                    worldCopyJump: true
-                }).setView([0, 0], 2);
-
-                L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    maxZoom: 19,
-                    attribution: '© OpenStreetMap'
-                }).addTo(currentMap);
-
-                const journeys = [];
-                const coordinates = [];
-
-                const orderedDocs = [...snapshot.docs];
-                for (const doc of orderedDocs) {
-                    const data = doc.data();
-                    
-                    let coords = data.coordinates;
-                    if (!coords && data.location) {
-                        coords = await getCoordinates(data.location);
-                    }
-                    
-                    if (coords) {
-                        coordinates.push([coords.lat, coords.lon]);
-                        journeys.push({
-                            ...data,
-                            coords: coords
-                        });
-                    }
-                }
-
-if (coordinates.length > 0) {
-    // Create a feature group to hold all map elements
-    const featureGroup = L.featureGroup().addTo(currentMap);
+    const journeyCards = document.getElementById('journeyCards');
+    const t = translations[currentLanguage];
+    journeyCards.innerHTML = '';
     
-    // Add the path to the feature group
-    const path = L.polyline(coordinates, {
-        color: '#3498db',
-        weight: 3,
-        opacity: 0.8
-    });
-    featureGroup.addLayer(path);
+    try {
+        const snapshot = await db.collection('stones').doc(stoneId)
+            .collection('journeys')
+            .orderBy('timestamp', 'desc')
+            .get();
 
-    // Add markers to the feature group
-    journeys.forEach((journey) => {
-        const marker = L.marker([journey.coords.lat, journey.coords.lon])
-            .bindPopup(`<b>${t.foundIn} ${journey.location}</b><br>${journey.message}`);
-        featureGroup.addLayer(marker);
-    });
+        document.getElementById('journeyStats').innerHTML = t.journeyCount.replace('{count}', snapshot.size);
+        document.getElementById('mapTitle').textContent = t.mapTitle;
 
-    // Wait for the map to be fully loaded and visible
-    setTimeout(() => {
-        // Invalidate the map size to handle any container resizing
-        currentMap.invalidateSize();
-        
-        // Fit bounds with padding and disable animation for more reliable fitting
-        currentMap.fitBounds(featureGroup.getBounds(), {
-            padding: [50, 50],
-            maxZoom: 12, // Prevent zooming in too close
-            animate: false
+        // Remove existing map if it exists
+        if (currentMap) {
+            currentMap.remove();
+        }
+
+        // Initialize map without setting initial view
+        currentMap = L.map('journeyMap', {
+            minZoom: 2,
+            maxZoom: 19,
+            scrollWheelZoom: true,
+            worldCopyJump: true
         });
-    }, 500); // Increased timeout to ensure the map container is fully rendered
-}
 
-                journeys.forEach((journey) => {
-                    const date = journey.timestamp ? journey.timestamp.toDate().toLocaleDateString() : 'Recent';
-                    const card = document.createElement('div');
-                    card.className = 'card';
-                    
-                    let photoHtml = '';
-                    if (journey.photoURL) {
-                        photoHtml = `<img src="${journey.photoURL}" alt="Stone location" class="journey-photo">`;
-                    }
-                    
-                    card.innerHTML = `
-                        <h3>📍 ${t.foundIn} ${journey.location}</h3>
-                        ${photoHtml}
-                        <p>${journey.message}</p>
-                        <p class="timestamp">${t.sharedOn} ${date}</p>
-                    `;
-                    journeyCards.appendChild(card);
+        // Add tile layer
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(currentMap);
+
+        // Collect and process journeys
+        const journeys = [];
+        const coordinates = [];
+
+        const orderedDocs = [...snapshot.docs];
+        for (const doc of orderedDocs) {
+            const data = doc.data();
+            
+            let coords = data.coordinates;
+            if (!coords && data.location) {
+                coords = await getCoordinates(data.location);
+            }
+            
+            if (coords) {
+                coordinates.push([coords.lat, coords.lon]);
+                journeys.push({
+                    ...data,
+                    coords: coords
                 });
-
-            } catch (error) {
-                console.error("Error loading journeys:", error);
             }
         }
 
-        if (!stoneId) {
-            alert('Please scan the QR code on your stone.');
+        if (coordinates.length > 0) {
+            // Create a feature group to hold all map elements
+            const featureGroup = L.featureGroup();
+            
+            // Add path to the feature group
+            const path = L.polyline(coordinates, {
+                color: '#3498db',
+                weight: 3,
+                opacity: 0.8
+            });
+            featureGroup.addLayer(path);
+
+            // Add markers to the feature group
+            journeys.forEach((journey) => {
+                const marker = L.marker([journey.coords.lat, journey.coords.lon])
+                    .bindPopup(`<b>${t.foundIn} ${journey.location}</b><br>${journey.message}`);
+                featureGroup.addLayer(marker);
+            });
+
+            // Add the feature group to the map
+            featureGroup.addTo(currentMap);
+
+            // Wait for the map container to be fully rendered
+            setTimeout(() => {
+                currentMap.invalidateSize();
+                
+                // Get the bounds of all our points
+                const bounds = featureGroup.getBounds();
+                
+                // Fit the map to these bounds
+                currentMap.fitBounds(bounds, {
+                    padding: [50, 50],
+                    maxZoom: 12
+                });
+            }, 500);
+        } else {
+            // If no coordinates, show world view
+            currentMap.setView([0, 0], 2);
         }
+
+        // Create journey cards
+        journeys.forEach((journey) => {
+            const date = journey.timestamp ? journey.timestamp.toDate().toLocaleDateString() : 'Recent';
+            const card = document.createElement('div');
+            card.className = 'card';
+            
+            let photoHtml = '';
+            if (journey.photoURL) {
+                photoHtml = `<img src="${journey.photoURL}" alt="Stone location" class="journey-photo">`;
+            }
+            
+            card.innerHTML = `
+                <h3>📍 ${t.foundIn} ${journey.location}</h3>
+                ${photoHtml}
+                <p>${journey.message}</p>
+                <p class="timestamp">${t.sharedOn} ${date}</p>
+            `;
+            journeyCards.appendChild(card);
+        });
+
+    } catch (error) {
+        console.error("Error loading journeys:", error);
+    }
+}
     </script>
 </body>
 </html>
