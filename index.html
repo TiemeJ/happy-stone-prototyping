@@ -701,14 +701,18 @@ if (coordinates.length > 0) {
         featureGroup.addLayer(marker);
     });
 
-    // Use a single timeout to handle both map invalidation and bounds fitting
+    // Wait for the map to be fully loaded and visible
     setTimeout(() => {
+        // Invalidate the map size to handle any container resizing
         currentMap.invalidateSize();
+        
+        // Fit bounds with padding and disable animation for more reliable fitting
         currentMap.fitBounds(featureGroup.getBounds(), {
             padding: [50, 50],
-            animate: true
+            maxZoom: 12, // Prevent zooming in too close
+            animate: false
         });
-    }, 300);
+    }, 500); // Increased timeout to ensure the map container is fully rendered
 }
 
                 journeys.forEach((journey) => {
