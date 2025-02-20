@@ -683,10 +683,10 @@ function showSection(num) {
                 }
 
 if (coordinates.length > 0) {
-    // Create a feature group to hold all map elements
-    const featureGroup = L.featureGroup().addTo(currentMap);
+    // Create a feature group
+    const featureGroup = L.featureGroup();
     
-    // Add the path to the feature group
+    // Add the path
     const path = L.polyline(coordinates, {
         color: '#3498db',
         weight: 3,
@@ -694,21 +694,19 @@ if (coordinates.length > 0) {
     });
     featureGroup.addLayer(path);
 
-    // Add markers to the feature group
+    // Add all markers
     journeys.forEach((journey) => {
         const marker = L.marker([journey.coords.lat, journey.coords.lon])
             .bindPopup(`<b>${t.foundIn} ${journey.location}</b><br>${journey.message}`);
         featureGroup.addLayer(marker);
     });
 
-    // Use a single timeout to handle both map invalidation and bounds fitting
-    setTimeout(() => {
-        currentMap.invalidateSize();
-        currentMap.fitBounds(featureGroup.getBounds(), {
-            padding: [50, 50],
-            animate: true
-        });
-    }, 300);
+    // Add the feature group to the map
+    featureGroup.addTo(currentMap);
+
+    // Get the bounds and fit the map to them
+    const bounds = featureGroup.getBounds();
+    currentMap.fitBounds(bounds);
 }
 
                 journeys.forEach((journey) => {
