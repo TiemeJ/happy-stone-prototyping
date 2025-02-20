@@ -325,18 +325,22 @@
             apiKey: "AIzaSyBVMOTMubOV8Y1iEpK-E0TqZC5MptS6jpk",
             authDomain: "happy-stone-tracker.firebaseapp.com",
             projectId: "happy-stone-tracker",
-            storageBucket: "happy-stone-tracker.firebasestorage.app",
+            storageBucket: "happy-stone-tracker.appspot.com",  // Make sure this matches your Firebase storage bucket
             messagingSenderId: "454968587977",
             appId: "1:454968587977:web:cce4e67177cdf8029ebf18",
             measurementId: "G-CV38E0V9E4"
         };
 
-        // Initialize Firebase
+        // Initialize Firebase - Place the initialization code RIGHT HERE
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
         const storage = firebase.storage();
-        let currentMap = null;
-        
+
+        // Enable Firestore logging in development (optional)
+        if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+            firebase.firestore.setLogLevel('debug');
+        }
+
         // Get stone ID from URL
         const urlParams = new URLSearchParams(window.location.search);
         const stoneId = urlParams.get('stone');
@@ -568,47 +572,88 @@
             }
         }
 
-        async function submitStoneJourney() {
-            const location = document.getElementById('location').value;
-            const message = document.getElementById('message').value;
-            const acquisition = document.querySelector('input[name="acquisition"]:checked')?.value;
+async function submitStoneJourney() {
+    const location = document.getElementById('location').value;
+    const message = document.getElementById('message').value;
+    const acquisition = document.querySelector('input[name="acquisition"]:checked')?.value;
+    const photoFile = document.getElementById('photoInput').files[0];
+    
+    if (!location || !message || !acquisition) {
+        alert('Please fill in all required fields');
+        return;
+    }
+    
+    try {
+        // Show some loading state
+        document.getElementById('submitButton').disabled = true;
+        
+        const coords = await getCoordinates(location);
+        let photoUrl = null;
+        
+        // Upload photo if one was selected
+        if (photoFile) {
+            const progressBar = document.querySelector('.upload-progress');
+            const progressBarFill = document.querySelector('.upload-progress-bar');
+            progressBar.style.display = 'block';
             
-            if (!location || !message || !acquisition) {
-                alert('Please fill in all fields');
-                return;
-            }
+            // Create a unique filename
+            const filename = `${stoneId}_${Date.now()}_${photoFile.name}`;
+            const photoRef = storage.ref(`stone_photos/${filename}`);
             
-            try {
-                const coords = await getCoordinates(location);
-                
-                // First create the journey document to get its ID
-                const journeyRef = await db.collection('stones').doc(stoneId).collection('journeys').add({
-                    location: location,
-                    message: message,
-                    acquisition: acquisition,
-                    coordinates: coords ? {lat: coords.lat, lon: coords.lon} : null,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                
-                // Upload photo if one was selected
-                const preview = document.getElementById('photoPreview');
-                if (preview.file) {
-                    const photoURL = await uploadPhoto(stoneId, journeyRef.id);
-                    if (photoURL) {
-                        // Update journey document with photo URL
-                        await journeyRef.update({
-                            photoURL: photoURL
-                        });
-                    }
-                }
-                
-                showSection(4);
-                loadJourneys();
-            } catch (error) {
-                console.error("Error submitting journey:", error);
-                alert('There was an error submitting your story. Please try again.');
-            }
+            // Create upload task
+            const uploadTask = photoRef.put(photoFile);
+            
+            // Wait for the upload to complete
+            await new Promise((resolve, reject) => {
+                uploadTask.on('state_changed', 
+                    (snapshot) => {
+                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                        progressBarFill.style.width = progress + '%';
+                    },
+                    (error) => reject(error),
+                    () => resolve()
+                );
+            });
+            
+            // Get the download URL after upload is complete
+            photoUrl = await photoRef.getDownloadURL();
         }
+        
+        // Create the journey document data
+        const journeyData = {
+            location: location,
+            message: message,
+            acquisition: acquisition,
+            coordinates: coords ? {lat: coords.lat, lon: coords.lon} : null,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        };
+
+        // Only add photoUrl if we have one
+        if (photoUrl) {
+            journeyData.photoUrl = photoUrl;
+        }
+        
+        // Add to Firestore
+        await db.collection('stones').doc(stoneId).collection('journeys').add(journeyData);
+        
+        // Success! Move to next section
+        showSection(4);
+        loadJourneys();
+        
+    } catch (error) {
+        console.error("Error submitting journey:", error);
+        alert('There was an error submitting your story. Please try again.');
+    } finally {
+        // Re-enable the submit button
+        document.getElementById('submitButton').disabled = false;
+        
+        // Hide progress bar
+        const progressBar = document.querySelector('.upload-progress');
+        if (progressBar) {
+            progressBar.style.display = 'none';
+        }
+    }
+}
         async function loadJourneys() {
             const journeyCards = document.getElementById('journeyCards');
             const t = translations[currentLanguage];
