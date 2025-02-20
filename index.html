@@ -668,7 +668,7 @@ function showSection(num) {
         const journeys = [];
         const coordinates = [];
 
-        const orderedDocs = [...snapshot.docs];
+        const orderedDocs = [...snapshot.docs].reverse();
         for (const doc of orderedDocs) {
             const data = doc.data();
             
