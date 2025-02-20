@@ -663,7 +663,7 @@
                 const journeys = [];
                 const coordinates = [];
 
-                const orderedDocs = [...snapshot.docs].reverse();
+                const orderedDocs = [...snapshot.docs];
                 for (const doc of orderedDocs) {
                     const data = doc.data();
                     
