@@ -331,19 +331,23 @@
             measurementId: "G-CV38E0V9E4"
         };
 
-        // Initialize Firebase - Place the initialization code RIGHT HERE
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const storage = firebase.storage();
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const storage = firebase.storage();
 
-        // Enable Firestore logging in development (optional)
-        if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
-            firebase.firestore.setLogLevel('debug');
-        }
+// Initialize empty map variable
+let currentMap = null;
 
-        // Get stone ID from URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const stoneId = urlParams.get('stone');
+// Add CORS settings to storage
+const storageRef = storage.ref();
+storage.setCustomAuthHeaders({
+    'Access-Control-Allow-Origin': 'https://tiemej.github.io'
+});
+
+// Get stone ID from URL
+const urlParams = new URLSearchParams(window.location.search);
+const stoneId = urlParams.get('stone');
 
         let currentLanguage = 'en';
         const translations = {
@@ -578,60 +582,57 @@ async function submitStoneJourney() {
         const message = document.getElementById('message').value;
         const acquisition = document.querySelector('input[name="acquisition"]:checked')?.value;
         const photoFile = document.getElementById('photoInput')?.files[0];
-        const submitButton = document.getElementById('submitButton');
         
         if (!location || !message || !acquisition) {
             alert('Please fill in all required fields');
             return;
         }
-        
-        // Disable submit button
-        if (submitButton) {
-            submitButton.disabled = true;
-        }
-        
+
         const coords = await getCoordinates(location);
         let photoUrl = null;
-        
+
         // Handle photo upload if present
         if (photoFile) {
             try {
-                const filename = `${stoneId}_${Date.now()}_${photoFile.name}`;
-                const photoRef = storage.ref(`stone_photos/${filename}`);
-                const uploadTask = photoRef.put(photoFile);
+                const metadata = {
+                    contentType: photoFile.type,
+                    customMetadata: {
+                        'origin': 'https://tiemej.github.io'
+                    }
+                };
+
+                const filename = `stone_photos/${stoneId}_${Date.now()}_${photoFile.name}`;
+                const photoRef = storage.ref(filename);
                 
-                // Upload the photo
-                await uploadTask;
-                photoUrl = await photoRef.getDownloadURL();
+                // Upload the file
+                const snapshot = await photoRef.put(photoFile, metadata);
+                photoUrl = await snapshot.ref.getDownloadURL();
             } catch (uploadError) {
                 console.error("Error uploading photo:", uploadError);
-                throw uploadError;
+                // Continue without the photo if upload fails
             }
         }
-        
-        // Save to Firestore
-        await db.collection('stones').doc(stoneId).collection('journeys').add({
+
+        // Add to Firestore
+        const journeyData = {
             location: location,
             message: message,
             acquisition: acquisition,
-            photoUrl: photoUrl,
             coordinates: coords ? {lat: coords.lat, lon: coords.lon} : null,
             timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        };
+
+        if (photoUrl) {
+            journeyData.photoUrl = photoUrl;
+        }
+
+        await db.collection('stones').doc(stoneId).collection('journeys').add(journeyData);
         
-        // Success! Move to next section
         showSection(4);
-        await loadJourneys();  // Wait for journeys to load
-        
+        loadJourneys();
     } catch (error) {
         console.error("Error submitting journey:", error);
         alert('There was an error submitting your story. Please try again.');
-    } finally {
-        // Re-enable submit button
-        const submitButton = document.getElementById('submitButton');
-        if (submitButton) {
-            submitButton.disabled = false;
-        }
     }
 }
 
