@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
     <style>
+        /* Original styles */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
@@ -149,6 +150,28 @@
         .share-button {
             padding: 8px 16px;
             font-size: 14px;
+            background: linear-gradient(to right, #84fab0, #8fd3f4);
+            color: #2c3e50;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .share-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+        }
+        #section4 {
+            opacity: 1 !important;
+        }
+        .map-container {
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+        #journeyMap {
+            opacity: 1 !important;
+            z-index: 1;
+            display: block !important;
         }
         .radio-group {
             margin: 15px 0;
@@ -175,7 +198,8 @@
             margin: 0;
             cursor: pointer;
         }
-        /* Photo upload styles */
+
+        /* New photo upload styles */
         .photo-upload {
             margin: 20px 0;
             text-align: center;
@@ -289,7 +313,7 @@
                     <textarea id="message" required></textarea>
                 </div>
 
-                <!-- Photo upload section -->
+                <!-- New photo upload section -->
                 <div class="form-group">
                     <label id="photoLabel"></label>
                     <div class="photo-upload">
@@ -412,26 +436,26 @@
             showSection(2);
         }
 
-function showSection(num) {
-    window.scrollTo(0, 0);  // Add this line
-    document.querySelectorAll('.section').forEach(section => {
-        section.classList.remove('active');
-    });
-    const targetSection = document.getElementById(`section${num}`);
-    targetSection.classList.add('active');
-    
-    if (num === 3) {
-        loadStoneInfo();
-    }
-    
-    if (num === 4) {
-        setTimeout(() => {
-            if (currentMap) {
-                currentMap.invalidateSize();
+        function showSection(num) {
+            window.scrollTo(0, 0);
+            document.querySelectorAll('.section').forEach(section => {
+                section.classList.remove('active');
+            });
+            const targetSection = document.getElementById(`section${num}`);
+            targetSection.classList.add('active');
+            
+            if (num === 3) {
+                loadStoneInfo();
             }
-        }, 100);
-    }
-}
+            
+            if (num === 4) {
+                setTimeout(() => {
+                    if (currentMap) {
+                        currentMap.invalidateSize();
+                    }
+                }, 100);
+            }
+        }
 
         function updateContent() {
             const t = translations[currentLanguage];
@@ -468,43 +492,6 @@ function showSection(num) {
             
             // Store the file for later upload
             preview.file = file;
-        }
-        
-        async function uploadPhoto(stoneId, journeyId) {
-            const preview = document.getElementById('photoPreview');
-            const file = preview.file;
-            
-            if (!file) return null;
-            
-            const progressBar = document.querySelector('.progress-bar');
-            const progressDiv = document.querySelector('.photo-progress');
-            progressDiv.style.display = 'block';
-            
-            // Create reference to storage location
-            const storageRef = storage.ref(`stones/${stoneId}/journeys/${journeyId}/${file.name}`);
-            
-            // Upload file
-            const uploadTask = storageRef.put(file);
-            
-            return new Promise((resolve, reject) => {
-                uploadTask.on('state_changed',
-                    (snapshot) => {
-                        // Handle progress
-                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                        progressBar.style.width = progress + '%';
-                    },
-                    (error) => {
-                        // Handle error
-                        console.error("Upload failed:", error);
-                        reject(error);
-                    },
-                    async () => {
-                        // Handle success
-                        const downloadURL = await uploadTask.snapshot.ref.getDownloadURL();
-                        resolve(downloadURL);
-                    }
-                );
-            });
         }
 
         function shareLocation() {
@@ -569,68 +556,68 @@ function showSection(num) {
             }
         }
 
- async function submitStoneJourney() {
-    try {
-        const location = document.getElementById('location').value;
-        const message = document.getElementById('message').value;
-        const acquisition = document.querySelector('input[name="acquisition"]:checked')?.value;
-        
-        if (!location || !message || !acquisition) {
-            alert('Please fill in all fields');
-            return;
-        }
-
-        // Create basic journey data
-        const journeyData = {
-            location: location,
-            message: message,
-            acquisition: acquisition,
-            timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        };
-
-        // Add coordinates if we can get them
-        try {
-            const coords = await getCoordinates(location);
-            if (coords) {
-                journeyData.coordinates = {
-                    lat: coords.lat,
-                    lon: coords.lon
-                };
-            }
-        } catch (coordError) {
-            console.log('Could not get coordinates');
-        }
-
-        // Save to Firestore first
-        const journeyRef = await db.collection('stones').doc(stoneId).collection('journeys').add(journeyData);
-
-        // Handle photo if present
-        const preview = document.getElementById('photoPreview');
-        if (preview && preview.file) {
+        async function submitStoneJourney() {
             try {
-                const filename = `${Date.now()}_${preview.file.name}`;
-                const photoRef = storage.ref(`stones/${stoneId}/photos/${filename}`);
-                await photoRef.put(preview.file);
-                const photoURL = await photoRef.getDownloadURL();
+                const location = document.getElementById('location').value;
+                const message = document.getElementById('message').value;
+                const acquisition = document.querySelector('input[name="acquisition"]:checked')?.value;
                 
-                // Update journey with photo URL
-                await journeyRef.update({
-                    photoURL: photoURL
-                });
-            } catch (photoError) {
-                console.log('Photo upload failed, but journey was saved');
+                if (!location || !message || !acquisition) {
+                    alert('Please fill in all fields');
+                    return;
+                }
+
+                // Create basic journey data
+                const journeyData = {
+                    location: location,
+                    message: message,
+                    acquisition: acquisition,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                };
+
+                // Add coordinates if we can get them
+                try {
+                    const coords = await getCoordinates(location);
+                    if (coords) {
+                        journeyData.coordinates = {
+                            lat: coords.lat,
+                            lon: coords.lon
+                        };
+                    }
+                } catch (coordError) {
+                    console.log('Could not get coordinates');
+                }
+
+                // Save to Firestore first
+                const journeyRef = await db.collection('stones').doc(stoneId).collection('journeys').add(journeyData);
+
+                // Handle photo if present
+                const preview = document.getElementById('photoPreview');
+                if (preview && preview.file) {
+                    try {
+                        const filename = `${Date.now()}_${preview.file.name}`;
+                        const photoRef = storage.ref(`stones/${stoneId}/photos/${filename}`);
+                        await photoRef.put(preview.file);
+                        const photoURL = await photoRef.getDownloadURL();
+                        
+                        // Update journey with photo URL
+                        await journeyRef.update({
+                            photoURL: photoURL
+                        });
+                    } catch (photoError) {
+                        console.log('Photo upload failed, but journey was saved');
+                    }
+                }
+
+                showSection(4);
+                loadJourneys();
+                
+            } catch (error) {
+                console.error("Error adding document: ", error);
+                alert('There was an error submitting your story. Please try again.');
             }
         }
 
-        // Always move to next section, even if photo upload failed
-        showSection(4);
-        
-    } catch (error) {
-        console.log('Error:', error);
-        // Still try to move to next section
-        showSection(4);
-    }
-}
         async function loadJourneys() {
             const journeyCards = document.getElementById('journeyCards');
             const t = translations[currentLanguage];
@@ -664,7 +651,7 @@ function showSection(num) {
                 const journeys = [];
                 const coordinates = [];
 
-                const orderedDocs = [...snapshot.docs];
+                const orderedDocs = [...snapshot.docs].reverse();
                 for (const doc of orderedDocs) {
                     const data = doc.data();
                     
@@ -682,34 +669,34 @@ function showSection(num) {
                     }
                 }
 
-if (coordinates.length > 0) {
-    // Create a feature group to hold all map elements
-    const featureGroup = L.featureGroup().addTo(currentMap);
-    
-    // Add the path to the feature group
-    const path = L.polyline(coordinates, {
-        color: '#3498db',
-        weight: 3,
-        opacity: 0.8
-    });
-    featureGroup.addLayer(path);
+                if (coordinates.length > 0) {
+                    // Create a feature group to hold all map elements
+                    const featureGroup = L.featureGroup().addTo(currentMap);
+                    
+                    // Add the path to the feature group
+                    const path = L.polyline(coordinates, {
+                        color: '#3498db',
+                        weight: 3,
+                        opacity: 0.8
+                    });
+                    featureGroup.addLayer(path);
 
-    // Add markers to the feature group
-    journeys.forEach((journey) => {
-        const marker = L.marker([journey.coords.lat, journey.coords.lon])
-            .bindPopup(`<b>${t.foundIn} ${journey.location}</b><br>${journey.message}`);
-        featureGroup.addLayer(marker);
-    });
+                    // Add markers to the feature group
+                    journeys.forEach((journey) => {
+                        const marker = L.marker([journey.coords.lat, journey.coords.lon])
+                            .bindPopup(`<b>${t.foundIn} ${journey.location}</b><br>${journey.message}`);
+                        featureGroup.addLayer(marker);
+                    });
 
-    // Use a single timeout to handle both map invalidation and bounds fitting
-    setTimeout(() => {
-        currentMap.invalidateSize();
-        currentMap.fitBounds(featureGroup.getBounds(), {
-            padding: [50, 50],
-            animate: true
-        });
-    }, 300);
-}
+                    // Use a single timeout to handle both map invalidation and bounds fitting
+                    setTimeout(() => {
+                        currentMap.invalidateSize();
+                        currentMap.fitBounds(featureGroup.getBounds(), {
+                            padding: [50, 50],
+                            animate: true
+                        });
+                    }, 300);
+                }
 
                 journeys.forEach((journey) => {
                     const date = journey.timestamp ? journey.timestamp.toDate().toLocaleDateString() : 'Recent';
