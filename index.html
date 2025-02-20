@@ -387,4 +387,334 @@
                 acquisitionStranger: 'Ik kreeg hem van een onbekende',
                 acquisitionKnown: 'Ik kreeg hem van iemand die ik ken',
                 messageLabel: 'Laat een bericht achter voor de volgende persoon! ✨',
-                photoLabel: 'Maak een foto van waar je de steen hebt g
+                photoLabel: 'Maak een foto van waar je de steen hebt geplaatst! 📸',
+                uploadButton: 'Foto maken',
+                submit: 'Deel je verhaal',
+                nextSteps: `<h3>Wat nu te doen?</h3>
+                    <p>1. Plaats de steen ergens anders waar anderen hem kunnen vinden</p>
+                    <p>2. Kies een veilige, openbare locatie</p>
+                    <p>3. Of geef de steen aan iemand anders</p>
+                    <p>4. Voel je goed wetende dat je bijdraagt aan het verspreiden van vreugde in de wereld!</p>`,
+                foundIn: 'Gevonden in',
+                sharedOn: 'Gedeeld op',
+                journeyCount: 'Deze steen heeft {count} keer vreugde verspreid tijdens zijn reis! ✨',
+                mapTitle: "Reis van de Steen 🗺️",
+                locationNotFound: "Locatie niet gevonden op de kaart"
+            }
+        };
+
+        function selectLanguage(lang) {
+            currentLanguage = lang;
+            document.querySelectorAll('.lang-title').forEach(el => {
+                el.textContent = translations[lang].title;
+            });
+            updateContent();
+            showSection(2);
+        }
+
+        function showSection(num) {
+            document.querySelectorAll('.section').forEach(section => {
+                section.classList.remove('active');
+            });
+            const targetSection = document.getElementById(`section${num}`);
+            targetSection.classList.add('active');
+            
+            if (num === 3) {
+                loadStoneInfo();
+            }
+            
+            if (num === 4) {
+                setTimeout(() => {
+                    if (currentMap) {
+                        currentMap.invalidateSize();
+                    }
+                }, 100);
+            }
+        }
+
+        function updateContent() {
+            const t = translations[currentLanguage];
+            document.getElementById('explanation').innerHTML = t.explanation;
+            document.getElementById('continueButton').textContent = t.continue;
+            document.getElementById('locationLabel').textContent = t.locationLabel;
+            document.getElementById('location').placeholder = t.locationPlaceholder;
+            document.getElementById('shareLocationText').textContent = t.shareLocationText;
+            document.getElementById('shareLocationButton').textContent = t.shareLocationButton;
+            document.getElementById('messageLabel').textContent = t.messageLabel;
+            document.getElementById('submitButton').textContent = t.submit;
+            document.getElementById('nextSteps').innerHTML = t.nextSteps;
+            document.getElementById('photoLabel').textContent = t.photoLabel;
+            document.getElementById('uploadButtonText').textContent = t.uploadButton;
+            
+            // Update acquisition field translations
+            document.getElementById('acquisitionLabel').textContent = t.acquisitionLabel;
+            document.getElementById('foundLabel').textContent = t.acquisitionFound;
+            document.getElementById('strangerLabel').textContent = t.acquisitionStranger;
+            document.getElementById('knownLabel').textContent = t.acquisitionKnown;
+        }
+
+        // Photo handling
+        document.getElementById('photoInput').addEventListener('change', handlePhotoSelect);
+        
+        function handlePhotoSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            // Show preview
+            const preview = document.getElementById('photoPreview');
+            preview.style.display = 'block';
+            preview.src = URL.createObjectURL(file);
+            
+            // Store the file for later upload
+            preview.file = file;
+        }
+        
+        async function uploadPhoto(stoneId, journeyId) {
+            const preview = document.getElementById('photoPreview');
+            const file = preview.file;
+            
+            if (!file) return null;
+            
+            const progressBar = document.querySelector('.progress-bar');
+            const progressDiv = document.querySelector('.photo-progress');
+            progressDiv.style.display = 'block';
+            
+            // Create reference to storage location
+            const storageRef = storage.ref(`stones/${stoneId}/journeys/${journeyId}/${file.name}`);
+            
+            // Upload file
+            const uploadTask = storageRef.put(file);
+            
+            return new Promise((resolve, reject) => {
+                uploadTask.on('state_changed',
+                    (snapshot) => {
+                        // Handle progress
+                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                        progressBar.style.width = progress + '%';
+                    },
+                    (error) => {
+                        // Handle error
+                        console.error("Upload failed:", error);
+                        reject(error);
+                    },
+                    async () => {
+                        // Handle success
+                        const downloadURL = await uploadTask.snapshot.ref.getDownloadURL();
+                        resolve(downloadURL);
+                    }
+                );
+            });
+        }
+
+        function shareLocation() {
+            if ("geolocation" in navigator) {
+                navigator.geolocation.getCurrentPosition(
+                    async function(position) {
+                        try {
+                            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${position.coords.latitude}&lon=${position.coords.longitude}&format=json`);
+                            const data = await response.json();
+                            const locationInput = document.getElementById('location');
+                            locationInput.value = data.display_name;
+                        } catch (error) {
+                            console.error("Error getting location details:", error);
+                            alert('Could not get location. Please enter it manually.');
+                        }
+                    },
+                    function(error) {
+                        console.error("Error getting location:", error);
+                        alert('Could not get location. Please enter it manually.');
+                    }
+                );
+            } else {
+                alert('Location sharing is not supported by your browser. Please enter location manually.');
+            }
+        }
+
+        async function loadStoneInfo() {
+            try {
+                const stoneDoc = await db.collection('stones').doc(stoneId).get();
+                if (stoneDoc.exists) {
+                    const stoneData = stoneDoc.data();
+                    document.getElementById('stoneInfo').innerHTML = `
+                        <h2>Stone #${stoneId}</h2>
+                        <p>${stoneData.description || 'A happy stone spreading joy!'}</p>
+                    `;
+                } else {
+                    await db.collection('stones').doc(stoneId).set({
+                        created: firebase.firestore.FieldValue.serverTimestamp(),
+                        description: 'A happy stone spreading joy!'
+                    });
+                }
+                loadJourneys();
+            } catch (error) {
+                console.error("Error loading stone info: ", error);
+            }
+        }
+
+        async function getCoordinates(locationString) {
+            try {
+                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locationString)}`);
+                const data = await response.json();
+                if (data.length > 0) {
+                    return {
+                        lat: parseFloat(data[0].lat),
+                        lon: parseFloat(data[0].lon)
+                    };
+                }
+                return null;
+            } catch (error) {
+                console.error("Error geocoding location:", error);
+                return null;
+            }
+        }
+
+        async function submitStoneJourney() {
+            const location = document.getElementById('location').value;
+            const message = document.getElementById('message').value;
+            const acquisition = document.querySelector('input[name="acquisition"]:checked')?.value;
+            
+            if (!location || !message || !acquisition) {
+                alert('Please fill in all fields');
+                return;
+            }
+            
+            try {
+                const coords = await getCoordinates(location);
+                
+                // First create the journey document to get its ID
+                const journeyRef = await db.collection('stones').doc(stoneId).collection('journeys').add({
+                    location: location,
+                    message: message,
+                    acquisition: acquisition,
+                    coordinates: coords ? {lat: coords.lat, lon: coords.lon} : null,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                // Upload photo if one was selected
+                const preview = document.getElementById('photoPreview');
+                if (preview.file) {
+                    const photoURL = await uploadPhoto(stoneId, journeyRef.id);
+                    if (photoURL) {
+                        // Update journey document with photo URL
+                        await journeyRef.update({
+                            photoURL: photoURL
+                        });
+                    }
+                }
+                
+                showSection(4);
+                loadJourneys();
+            } catch (error) {
+                console.error("Error submitting journey:", error);
+                alert('There was an error submitting your story. Please try again.');
+            }
+        }
+        async function loadJourneys() {
+            const journeyCards = document.getElementById('journeyCards');
+            const t = translations[currentLanguage];
+            journeyCards.innerHTML = '';
+            
+            try {
+                const snapshot = await db.collection('stones').doc(stoneId)
+                    .collection('journeys')
+                    .orderBy('timestamp', 'desc')
+                    .get();
+
+                document.getElementById('journeyStats').innerHTML = t.journeyCount.replace('{count}', snapshot.size);
+                
+                document.getElementById('mapTitle').textContent = t.mapTitle;
+                if (currentMap) {
+                    currentMap.remove();
+                }
+
+                currentMap = L.map('journeyMap', {
+                    minZoom: 2,
+                    maxZoom: 19,
+                    scrollWheelZoom: true,
+                    worldCopyJump: true
+                }).setView([0, 0], 2);
+
+                L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '© OpenStreetMap'
+                }).addTo(currentMap);
+
+                const journeys = [];
+                const coordinates = [];
+
+                const orderedDocs = [...snapshot.docs].reverse();
+                for (const doc of orderedDocs) {
+                    const data = doc.data();
+                    
+                    let coords = data.coordinates;
+                    if (!coords && data.location) {
+                        coords = await getCoordinates(data.location);
+                    }
+                    
+                    if (coords) {
+                        coordinates.push([coords.lat, coords.lon]);
+                        journeys.push({
+                            ...data,
+                            coords: coords
+                        });
+                    }
+                }
+
+                if (coordinates.length > 0) {
+                    const path = L.polyline(coordinates, {
+                        color: '#3498db',
+                        weight: 3,
+                        opacity: 0.8
+                    }).addTo(currentMap);
+
+                    journeys.forEach((journey) => {
+                        const marker = L.marker([journey.coords.lat, journey.coords.lon])
+                            .addTo(currentMap)
+                            .bindPopup(`<b>${t.foundIn} ${journey.location}</b><br>${journey.message}`);
+                    });
+
+                    const bounds = path.getBounds();
+                    currentMap.fitBounds(bounds, { 
+                        padding: [100, 100],
+                        maxZoom: 8
+                    });
+                    
+                    setTimeout(() => {
+                        currentMap.invalidateSize();
+                    }, 100);
+                    
+                    setTimeout(() => {
+                        currentMap.invalidateSize();
+                    }, 500);
+                }
+
+                journeys.forEach((journey) => {
+                    const date = journey.timestamp ? journey.timestamp.toDate().toLocaleDateString() : 'Recent';
+                    const card = document.createElement('div');
+                    card.className = 'card';
+                    
+                    let photoHtml = '';
+                    if (journey.photoURL) {
+                        photoHtml = `<img src="${journey.photoURL}" alt="Stone location" class="journey-photo">`;
+                    }
+                    
+                    card.innerHTML = `
+                        <h3>📍 ${t.foundIn} ${journey.location}</h3>
+                        ${photoHtml}
+                        <p>${journey.message}</p>
+                        <p class="timestamp">${t.sharedOn} ${date}</p>
+                    `;
+                    journeyCards.appendChild(card);
+                });
+
+            } catch (error) {
+                console.error("Error loading journeys:", error);
+            }
+        }
+
+        if (!stoneId) {
+            alert('Please scan the QR code on your stone.');
+        }
+    </script>
+</body>
+</html>
