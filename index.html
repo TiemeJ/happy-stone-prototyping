@@ -198,8 +198,6 @@
             margin: 0;
             cursor: pointer;
         }
-
-        /* New photo upload styles */
         .photo-upload {
             margin: 20px 0;
             text-align: center;
@@ -313,7 +311,6 @@
                     <textarea id="message" required></textarea>
                 </div>
 
-                <!-- New photo upload section -->
                 <div class="form-group">
                     <label id="photoLabel"></label>
                     <div class="photo-upload">
@@ -343,6 +340,7 @@
             <div class="journey-cards" id="journeyCards"></div>
         </section>
     </div>
+
     <script>
         // Firebase configuration
         const firebaseConfig = {
@@ -567,8 +565,12 @@
                     return;
                 }
 
+                // Generate a unique ID for this journey entry
+                const journeyId = db.collection('stones').doc(stoneId).collection('journeys').doc().id;
+
                 // Create basic journey data
                 const journeyData = {
+                    journeyId: journeyId,  // Store the ID in the document itself
                     location: location,
                     message: message,
                     acquisition: acquisition,
@@ -588,26 +590,31 @@
                     console.log('Could not get coordinates');
                 }
 
-                // Save to Firestore first
-                const journeyRef = await db.collection('stones').doc(stoneId).collection('journeys').add(journeyData);
-
                 // Handle photo if present
                 const preview = document.getElementById('photoPreview');
                 if (preview && preview.file) {
                     try {
-                        const filename = `${Date.now()}_${preview.file.name}`;
+                        // Use the journeyId in the photo filename for direct correlation
+                        const filename = `${journeyId}_${Date.now()}.${preview.file.name.split('.').pop()}`;
                         const photoRef = storage.ref(`stones/${stoneId}/photos/${filename}`);
+                        
+                        // Upload the photo
                         await photoRef.put(preview.file);
                         const photoURL = await photoRef.getDownloadURL();
                         
-                        // Update journey with photo URL
-                        await journeyRef.update({
-                            photoURL: photoURL
-                        });
+                        // Add photo information to journey data
+                        journeyData.photoData = {
+                            filename: filename,
+                            url: photoURL,
+                            uploadTimestamp: firebase.firestore.FieldValue.serverTimestamp()
+                        };
                     } catch (photoError) {
-                        console.log('Photo upload failed, but journey was saved');
+                        console.error('Photo upload failed:', photoError);
                     }
                 }
+
+                // Save to Firestore using the generated ID
+                await db.collection('stones').doc(stoneId).collection('journeys').doc(journeyId).set(journeyData);
 
                 showSection(4);
                 loadJourneys();
@@ -670,10 +677,8 @@
                 }
 
                 if (coordinates.length > 0) {
-                    // Create a feature group to hold all map elements
                     const featureGroup = L.featureGroup().addTo(currentMap);
                     
-                    // Add the path to the feature group
                     const path = L.polyline(coordinates, {
                         color: '#3498db',
                         weight: 3,
@@ -681,14 +686,12 @@
                     });
                     featureGroup.addLayer(path);
 
-                    // Add markers to the feature group
                     journeys.forEach((journey) => {
                         const marker = L.marker([journey.coords.lat, journey.coords.lon])
                             .bindPopup(`<b>${t.foundIn} ${journey.location}</b><br>${journey.message}`);
                         featureGroup.addLayer(marker);
                     });
 
-                    // Use a single timeout to handle both map invalidation and bounds fitting
                     setTimeout(() => {
                         currentMap.invalidateSize();
                         currentMap.fitBounds(featureGroup.getBounds(), {
@@ -704,8 +707,8 @@
                     card.className = 'card';
                     
                     let photoHtml = '';
-                    if (journey.photoURL) {
-                        photoHtml = `<img src="${journey.photoURL}" alt="Stone location" class="journey-photo">`;
+                    if (journey.photoData && journey.photoData.url) {
+                        photoHtml = `<img src="${journey.photoData.url}" alt="Stone location" class="journey-photo">`;
                     }
                     
                     card.innerHTML = `
