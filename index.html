@@ -3,123 +3,85 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Happy Stone Journey</title>
+    <title>Happy Stones Dashboard</title>
+    <!-- Firebase SDKs -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-firestore-compat.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-storage-compat.min.js"></script>
+    <!-- Leaflet -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
     <style>
-        /* Original styles */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
             padding: 20px;
             background: linear-gradient(120deg, #84fab0 0%, #8fd3f4 100%);
             min-height: 100vh;
-            line-height: 1.6;
         }
+
         .container {
-            max-width: 800px;
+            max-width: 1200px;
             margin: 0 auto;
             background: rgba(255, 255, 255, 0.95);
             padding: 30px;
             border-radius: 20px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
         }
-        .section {
-            display: none;
-            opacity: 0;
-            transition: opacity 0.5s ease;
-        }
-        .section.active {
-            display: block;
-            opacity: 1;
-        }
-        h1 {
+
+        h1, h2 {
             color: #2c3e50;
             text-align: center;
             margin-bottom: 20px;
-            font-size: 2.5em;
         }
-        .language-buttons {
-            display: flex;
-            justify-content: center;
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 300px 1fr;
             gap: 20px;
-            margin: 30px 0;
+            margin-top: 20px;
         }
-        button {
-            background: linear-gradient(to right, #84fab0, #8fd3f4);
-            color: #2c3e50;
-            padding: 14px 28px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
-            transition: transform 0.2s, box-shadow 0.2s;
+
+        .stones-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
         }
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        }
-        .welcome-message {
-            text-align: center;
-            color: #34495e;
-            margin: 30px auto;
-            max-width: 600px;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 15px;
-            border-left: 5px solid #84fab0;
-        }
-        .form-group {
-            margin-bottom: 25px;
-        }
-        label {
-            display: block;
-            margin-bottom: 8px;
-            color: #34495e;
-            font-weight: 600;
-        }
-        input[type="text"], textarea {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 16px;
-            transition: border-color 0.3s ease;
-        }
-        textarea {
-            height: 120px;
-            resize: vertical;
-        }
-        .journey-cards {
-            margin-top: 40px;
-        }
-        .card {
+
+        .stone-card {
             background: white;
-            padding: 25px;
-            border-radius: 15px;
-            margin-bottom: 25px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
             border: 1px solid #e0e0e0;
-        }
-        .next-steps {
-            background: #f1f8ff;
-            padding: 20px;
-            border-radius: 15px;
-            margin: 30px 0;
-            border-left: 5px solid #8fd3f4;
-        }
-        .stone-info {
+            cursor: pointer;
+            transition: transform 0.2s;
             text-align: center;
-            margin-bottom: 30px;
-            padding: 20px;
-            background: #f7f9fc;
-            border-radius: 15px;
-            border: 2px solid #8fd3f4;
         }
+
+        .stone-card:hover {
+            transform: translateY(-2px);
+            background: #f8f9fa;
+        }
+
+        .stone-card.active {
+            border: 2px solid #84fab0;
+            background: #f0fff4;
+        }
+
+        .stone-card h3 {
+            margin: 0;
+            font-size: 0.9em;
+            color: #2c3e50;
+        }
+
+        .stone-card p {
+            margin: 5px 0 0;
+            font-size: 0.8em;
+            color: #666;
+        }
+
         #journeyMap {
             height: 400px;
             width: 100%;
@@ -127,222 +89,247 @@
             border-radius: 15px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-        .map-container {
-            margin-top: 30px;
+
+        .journey-details {
+            margin-top: 20px;
             padding: 20px;
             background: #f8f9fa;
             border-radius: 15px;
-            border-left: 5px solid #84fab0;
+            max-height: 600px;
+            overflow-y: auto;
         }
-        .map-title {
-            text-align: center;
+
+        .journey-entry {
+            background: white;
+            padding: 15px;
             margin-bottom: 15px;
+            border-radius: 10px;
+            border-left: 4px solid #84fab0;
+        }
+
+        .recent-updates {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            max-height: 800px;
+            overflow-y: auto;
+        }
+
+        .update-entry {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 15px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 10px;
+            background: #f8f9fa;
+            border-left: 4px solid #8fd3f4;
+            align-items: start;
+        }
+
+        .update-content {
+            flex: 1;
+        }
+
+        .update-entry h3 {
+            margin: 0 0 5px 0;
+            font-size: 0.9em;
             color: #2c3e50;
         }
-        .location-share {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-top: 8px;
-            font-size: 14px;
+
+        .update-entry p {
+            margin: 5px 0;
+            font-size: 0.9em;
+        }
+
+        .update-entry .timestamp {
+            font-size: 0.8em;
             color: #666;
         }
-        .share-button {
-            padding: 8px 16px;
-            font-size: 14px;
-            background: linear-gradient(to right, #84fab0, #8fd3f4);
-            color: #2c3e50;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
         }
-        .share-button:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-        }
-        #section4 {
-            opacity: 1 !important;
-        }
-        .map-container {
-            visibility: visible !important;
-            opacity: 1 !important;
-        }
-        #journeyMap {
-            opacity: 1 !important;
-            z-index: 1;
-            display: block !important;
-        }
-        .radio-group {
-            margin: 15px 0;
+
+        .stat-card {
+            background: white;
             padding: 10px;
-            background: #f8f9fa;
-            border-radius: 8px;
-        }
-        .radio-option {
-            display: flex;
-            align-items: center;
-            margin: 10px 0;
-            padding: 8px;
-            transition: background-color 0.2s;
-        }
-        .radio-option:hover {
-            background-color: #edf2f7;
-        }
-        .radio-option input[type="radio"] {
-            margin-right: 10px;
-            cursor: pointer;
-        }
-        .radio-option label {
-            display: inline;
-            margin: 0;
-            cursor: pointer;
-        }
-        .photo-upload {
-            margin: 20px 0;
+            border-radius: 10px;
             text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
         }
-        .photo-preview {
-            max-width: 300px;
-            max-height: 300px;
-            margin: 10px auto;
-            display: none;
+
+        .stat-card h3 {
+            margin: 0;
+            font-size: 0.9em;
+            color: #2c3e50;
+        }
+
+        .stat-card p {
+            margin: 5px 0 0 0;
+            font-size: 1.2em;
+            color: #84fab0;
+            font-weight: bold;
+        }
+
+        .journey-photo {
+            max-width: 200px;
             border-radius: 8px;
+            margin: 10px 0;
+            cursor: pointer;
+            transition: transform 0.2s;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        .upload-button {
-            display: inline-block;
-            padding: 10px 20px;
-            background: linear-gradient(to right, #84fab0, #8fd3f4);
+
+        .journey-photo:hover {
+            transform: scale(1.05);
+        }
+
+        .update-photo {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
             border-radius: 8px;
             cursor: pointer;
-            margin: 10px 0;
-            transition: all 0.3s ease;
+            transition: transform 0.2s;
         }
-        .upload-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+
+        .update-photo:hover {
+            transform: scale(1.05);
         }
-        .upload-button input[type="file"] {
+
+        .photo-modal {
             display: none;
-        }
-        .photo-progress {
+            position: fixed;
+            top: 0;
+            left: 0;
             width: 100%;
-            height: 4px;
-            background: #f0f0f0;
-            border-radius: 4px;
-            margin: 10px 0;
-            display: none;
-        }
-        .progress-bar {
             height: 100%;
-            background: linear-gradient(to right, #84fab0, #8fd3f4);
-            width: 0;
-            border-radius: 4px;
-            transition: width 0.3s ease;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
         }
-        .journey-photo {
+
+        .modal-content {
+            max-width: 90%;
+            max-height: 90%;
+            position: relative;
+        }
+
+        .modal-content img {
             max-width: 100%;
+            max-height: 90vh;
             border-radius: 8px;
-            margin: 10px 0;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .close-modal {
+            position: absolute;
+            top: -40px;
+            right: -40px;
+            color: white;
+            font-size: 30px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 10px;
+            transition: transform 0.2s;
+        }
+
+        .close-modal:hover {
+            transform: scale(1.1);
+        }
+
+        .loading-indicator {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .container {
+                padding: 15px;
+            }
+
+            .journey-photo {
+                max-width: 100%;
+            }
+
+            .update-entry {
+                grid-template-columns: 1fr;
+            }
+
+            .update-photo {
+                width: 100%;
+                height: 200px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- Section 1: Language Selection -->
-        <section id="section1" class="section active">
-            <h1>🪨 Happy Stone Journey</h1>
-            <div class="welcome-message">
-                <h2>Welcome to the Happy Stone Project!</h2>
-                <h2>Welkom bij het Happy Stone Project!</h2>
+        <h1>🪨 Happy Stones Dashboard</h1>
+        
+        <!-- Loading Indicator -->
+        <div id="loadingIndicator" class="loading-indicator">
+            Loading...
+        </div>
+
+        <!-- Photo Modal -->
+        <div id="photoModal" class="photo-modal">
+            <div class="modal-content">
+                <button class="close-modal" onclick="closePhotoModal()">×</button>
+                <img id="modalImage" src="" alt="Stone location">
             </div>
-            <div class="language-buttons">
-                <button onclick="selectLanguage('en')">Continue in English</button>
-                <button onclick="selectLanguage('nl')">Ga verder in het Nederlands</button>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <h3>Total Stones</h3>
+                <p id="totalStones">0</p>
             </div>
-        </section>
-
-        <!-- Section 2: Project Explanation -->
-        <section id="section2" class="section">
-            <h1>🪨 <span class="lang-title">Happy Stone Journey</span></h1>
-            <div class="welcome-message">
-                <div id="explanation"></div>
+            <div class="stat-card">
+                <h3>Total Journeys</h3>
+                <p id="totalJourneys">0</p>
             </div>
-            <button onclick="showSection(3)" id="continueButton"></button>
-        </section>
-
-        <!-- Section 3: Stone Info and Form -->
-        <section id="section3" class="section">
-            <h1>🪨 <span class="lang-title">Happy Stone Journey</span></h1>
-            <div id="stoneInfo" class="stone-info"></div>
-            <div id="journeyStats"></div>
-            <div id="stoneForm">
-                <div class="form-group">
-                    <label id="locationLabel"></label>
-                    <input type="text" id="location" required>
-                    <div class="location-share">
-                        <span id="shareLocationText"></span>
-                        <button onclick="shareLocation()" id="shareLocationButton" class="share-button"></button>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label id="acquisitionLabel"></label>
-                    <div class="radio-group">
-                        <div class="radio-option">
-                            <input type="radio" id="found" name="acquisition" value="found" required>
-                            <label for="found" id="foundLabel"></label>
-                        </div>
-                        <div class="radio-option">
-                            <input type="radio" id="stranger" name="acquisition" value="stranger">
-                            <label for="stranger" id="strangerLabel"></label>
-                        </div>
-                        <div class="radio-option">
-                            <input type="radio" id="known" name="acquisition" value="known">
-                            <label for="known" id="knownLabel"></label>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label id="messageLabel"></label>
-                    <textarea id="message" required></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label id="photoLabel"></label>
-                    <div class="photo-upload">
-                        <label class="upload-button">
-                            <input type="file" id="photoInput" accept="image/*" capture="environment">
-                            <span id="uploadButtonText"></span>
-                        </label>
-                        <div class="photo-progress">
-                            <div class="progress-bar"></div>
-                        </div>
-                        <img id="photoPreview" class="photo-preview">
-                    </div>
-                </div>
-
-                <button onclick="submitStoneJourney()" id="submitButton"></button>
+            <div class="stat-card">
+                <h3>Active This Month</h3>
+                <p id="activeStones">0</p>
             </div>
-        </section>
+        </div>
 
-        <!-- Section 4: Next Steps and Journey History -->
-        <section id="section4" class="section">
-            <h1>🪨 <span class="lang-title">Happy Stone Journey</span></h1>
-            <div class="map-container">
-                <h3 class="map-title" id="mapTitle"></h3>
+        <div class="dashboard-grid">
+            <div class="recent-updates">
+                <h2>Recent Updates</h2>
+                <div id="recentUpdates"></div>
+            </div>
+
+            <div class="main-content">
+                <div class="stones-grid" id="stonesGrid"></div>
                 <div id="journeyMap"></div>
+                <div class="journey-details" id="journeyDetails"></div>
             </div>
-            <div class="next-steps" id="nextSteps"></div>
-            <div class="journey-cards" id="journeyCards"></div>
-        </section>
+        </div>
     </div>
 
     <script>
-        // Firebase configuration
+        // Initialize Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyBVMOTMubOV8Y1iEpK-E0TqZC5MptS6jpk",
             authDomain: "happy-stone-tracker.firebaseapp.com",
@@ -354,187 +341,25 @@
         };
 
         // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
+        const app = firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
         const storage = firebase.storage();
         let currentMap = null;
-        
-        // Get stone ID from URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const stoneId = urlParams.get('stone');
+        let activeStoneId = null;
 
-        let currentLanguage = 'en';
-        const translations = {
-            en: {
-                title: 'Happy Stone Journey',
-                explanation: `<h2>What is the Happy Stone Project?</h2>
-                    <p>You've found a special stone that's on a mission to spread joy and connection throughout our community. Each person who finds it adds their own story to its journey.</p>
-                    <p>After you share your message, please place the stone in a new location, or give it to someone else, to continue spreading happiness!</p>`,
-                continue: 'Continue',
-                locationLabel: 'Where did you find the stone? 📍',
-                locationPlaceholder: 'City/Village',
-                shareLocationText: 'Automatically share location',
-                shareLocationButton: 'Share',
-                acquisitionLabel: 'How did you get the stone? 🤔',
-                acquisitionFound: 'I found it',
-                acquisitionStranger: 'I received it from a stranger',
-                acquisitionKnown: 'I received it from someone I know',
-                messageLabel: 'Leave a message for the next person! ✨',
-                photoLabel: 'Take a photo of where you placed the stone! 📸',
-                uploadButton: 'Take Photo',
-                submit: 'Share Your Story',
-                nextSteps: `<h3>What to Do Next?</h3>
-                    <p>1. Place the stone somewhere new where others might find it</p>
-                    <p>2. Choose a safe, public location</p>
-                    <p>3. Or give the stone to someone else</p>
-                    <p>4. Feel good knowing you're part of spreading joy in the world!</p>`,
-                foundIn: 'Found in',
-                sharedOn: 'Shared on',
-                journeyCount: 'This stone has spread joy {count} times on its journey! ✨',
-                mapTitle: "Stone's Journey Map 🗺️",
-                locationNotFound: "Location not found on map"
-            },
-            nl: {
-                title: 'Happy Stone Reis',
-                explanation: `<h2>Wat is het Happy Stone Project?</h2>
-                    <p>Je hebt een speciale steen gevonden die op missie is om vreugde en verbinding te verspreiden in onze gemeenschap. Iedereen die de steen vindt, voegt zijn eigen verhaal toe aan de reis.</p>
-                    <p>Nadat je je bericht hebt gedeeld, plaats de steen dan op een nieuwe plek, of geef hem aan een ander, zodat het verspreiden van geluk zich kan voortzetten!</p>`,
-                continue: 'Ga verder',
-                locationLabel: 'Waar heb je de steen gevonden? 📍',
-                locationPlaceholder: 'Stad/Dorp',
-                shareLocationText: 'Automatisch locatie delen',
-                shareLocationButton: 'Delen',
-                acquisitionLabel: 'Hoe ben je aan de steen gekomen? 🤔',
-                acquisitionFound: 'Ik heb hem gevonden',
-                acquisitionStranger: 'Ik kreeg hem van een onbekende',
-                acquisitionKnown: 'Ik kreeg hem van iemand die ik ken',
-                messageLabel: 'Laat een bericht achter voor de volgende persoon! ✨',
-                photoLabel: 'Maak een foto van waar je de steen hebt geplaatst! 📸',
-                uploadButton: 'Foto maken',
-                submit: 'Deel je verhaal',
-                nextSteps: `<h3>Wat nu te doen?</h3>
-                    <p>1. Plaats de steen ergens anders waar anderen hem kunnen vinden</p>
-                    <p>2. Kies een veilige, openbare locatie</p>
-                    <p>3. Of geef de steen aan iemand anders</p>
-                    <p>4. Voel je goed wetende dat je bijdraagt aan het verspreiden van vreugde in de wereld!</p>`,
-                foundIn: 'Gevonden in',
-                sharedOn: 'Gedeeld op',
-                journeyCount: 'Deze steen heeft {count} keer vreugde verspreid tijdens zijn reis! ✨',
-                mapTitle: "Reis van de Steen 🗺️",
-                locationNotFound: "Locatie niet gevonden op de kaart"
-            }
-        };
-
-        function selectLanguage(lang) {
-            currentLanguage = lang;
-            document.querySelectorAll('.lang-title').forEach(el => {
-                el.textContent = translations[lang].title;
-            });
-            updateContent();
-            showSection(2);
+        // Function to get URL parameters
+        function getUrlParameter(name) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(name);
         }
 
-        function showSection(num) {
-            window.scrollTo(0, 0);
-            document.querySelectorAll('.section').forEach(section => {
-                section.classList.remove('active');
-            });
-            const targetSection = document.getElementById(`section${num}`);
-            targetSection.classList.add('active');
-            
-            if (num === 3) {
-                loadStoneInfo();
-            }
-            
-            if (num === 4) {
-                setTimeout(() => {
-                    if (currentMap) {
-                        currentMap.invalidateSize();
-                    }
-                }, 100);
-            }
+        // Loading indicator functions
+        function showLoading() {
+            document.getElementById('loadingIndicator').style.display = 'block';
         }
 
-        function updateContent() {
-            const t = translations[currentLanguage];
-            document.getElementById('explanation').innerHTML = t.explanation;
-            document.getElementById('continueButton').textContent = t.continue;
-            document.getElementById('locationLabel').textContent = t.locationLabel;
-            document.getElementById('location').placeholder = t.locationPlaceholder;
-            document.getElementById('shareLocationText').textContent = t.shareLocationText;
-            document.getElementById('shareLocationButton').textContent = t.shareLocationButton;
-            document.getElementById('messageLabel').textContent = t.messageLabel;
-            document.getElementById('submitButton').textContent = t.submit;
-            document.getElementById('nextSteps').innerHTML = t.nextSteps;
-            document.getElementById('photoLabel').textContent = t.photoLabel;
-            document.getElementById('uploadButtonText').textContent = t.uploadButton;
-            
-            // Update acquisition field translations
-            document.getElementById('acquisitionLabel').textContent = t.acquisitionLabel;
-            document.getElementById('foundLabel').textContent = t.acquisitionFound;
-            document.getElementById('strangerLabel').textContent = t.acquisitionStranger;
-            document.getElementById('knownLabel').textContent = t.acquisitionKnown;
-        }
-
-        // Photo handling
-        document.getElementById('photoInput').addEventListener('change', handlePhotoSelect);
-        
-        function handlePhotoSelect(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            
-            // Show preview
-            const preview = document.getElementById('photoPreview');
-            preview.style.display = 'block';
-            preview.src = URL.createObjectURL(file);
-            
-            // Store the file for later upload
-            preview.file = file;
-        }
-
-        function shareLocation() {
-            if ("geolocation" in navigator) {
-                navigator.geolocation.getCurrentPosition(
-                    async function(position) {
-                        try {
-                            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${position.coords.latitude}&lon=${position.coords.longitude}&format=json`);
-                            const data = await response.json();
-                            const locationInput = document.getElementById('location');
-                            locationInput.value = data.display_name;
-                        } catch (error) {
-                            console.error("Error getting location details:", error);
-                            alert('Could not get location. Please enter it manually.');
-                        }
-                    },
-                    function(error) {
-                        console.error("Error getting location:", error);
-                        alert('Could not get location. Please enter it manually.');
-                    }
-                );
-            } else {
-                alert('Location sharing is not supported by your browser. Please enter location manually.');
-            }
-        }
-
-        async function loadStoneInfo() {
-            try {
-                const stoneDoc = await db.collection('stones').doc(stoneId).get();
-                if (stoneDoc.exists) {
-                    const stoneData = stoneDoc.data();
-                    document.getElementById('stoneInfo').innerHTML = `
-                        <h2>Stone #${stoneId}</h2>
-                        <p>${stoneData.description || 'A happy stone spreading joy!'}</p>
-                    `;
-                } else {
-                    await db.collection('stones').doc(stoneId).set({
-                        created: firebase.firestore.FieldValue.serverTimestamp(),
-                        description: 'A happy stone spreading joy!'
-                    });
-                }
-                loadJourneys();
-            } catch (error) {
-                console.error("Error loading stone info: ", error);
-            }
+        function hideLoading() {
+            document.getElementById('loadingIndicator').style.display = 'none';
         }
 
         async function getCoordinates(locationString) {
@@ -554,111 +379,237 @@
             }
         }
 
-        async function submitStoneJourney() {
+        function openPhotoModal(url) {
+            const modal = document.getElementById('photoModal');
+            const modalImg = document.getElementById('modalImage');
+            modal.style.display = 'flex';
+            modalImg.src = url;
+        }
+
+        function closePhotoModal() {
+            const modal = document.getElementById('photoModal');
+            modal.style.display = 'none';
+        }
+
+        // Load recent updates
+        async function loadRecentUpdates() {
+            const recentUpdates = document.getElementById('recentUpdates');
+            recentUpdates.innerHTML = '';
+            showLoading();
+
             try {
-                const location = document.getElementById('location').value;
-                const message = document.getElementById('message').value;
-                const acquisition = document.querySelector('input[name="acquisition"]:checked')?.value;
-                
-                if (!location || !message || !acquisition) {
-                    alert('Please fill in all fields');
-                    return;
-                }
+                const stoneIdParam = getUrlParameter('stone');
+                let allUpdates = [];
 
-                // Generate a unique ID for this journey entry
-                const journeyId = db.collection('stones').doc(stoneId).collection('journeys').doc().id;
+                if (stoneIdParam) {
+                    // Load updates for single stone
+                    const journeysSnapshot = await db.collection('stones')
+                        .doc(stoneIdParam)
+                        .collection('journeys')
+                        .orderBy('timestamp', 'desc')
+                        .limit(20)
+                        .get();
 
-                // Create basic journey data
-                const journeyData = {
-                    journeyId: journeyId,  // Store the ID in the document itself
-                    location: location,
-                    message: message,
-                    acquisition: acquisition,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                };
+                    journeysSnapshot.docs.forEach(doc => {
+                        const data = doc.data();
+                        allUpdates.push({
+                            stoneId: stoneIdParam,
+                            ...data
+                        });
+                    });
+                } else {
+                    // Load updates for all stones
+                    const stonesSnapshot = await db.collection('stones').get();
 
-                // Add coordinates if we can get them
-                try {
-                    const coords = await getCoordinates(location);
-                    if (coords) {
-                        journeyData.coordinates = {
-                            lat: coords.lat,
-                            lon: coords.lon
-                        };
-                    }
-                } catch (coordError) {
-                    console.log('Could not get coordinates');
-                }
+                    for (const stoneDoc of stonesSnapshot.docs) {
+                        const journeysSnapshot = await stoneDoc.ref.collection('journeys')
+                            .orderBy('timestamp', 'desc')
+                            .limit(5)
+                            .get();
 
-                // Handle photo if present
-                const preview = document.getElementById('photoPreview');
-                if (preview && preview.file) {
-                    try {
-                        // Use the journeyId in the photo filename for direct correlation
-                        const filename = `${journeyId}_${Date.now()}.${preview.file.name.split('.').pop()}`;
-                        const photoRef = storage.ref(`stones/${stoneId}/photos/${filename}`);
-                        
-                        // Upload the photo
-                        await photoRef.put(preview.file);
-                        const photoURL = await photoRef.getDownloadURL();
-                        
-                        // Add photo information to journey data
-                        journeyData.photoData = {
-                            filename: filename,
-                            url: photoURL,
-                            uploadTimestamp: firebase.firestore.FieldValue.serverTimestamp()
-                        };
-                    } catch (photoError) {
-                        console.error('Photo upload failed:', photoError);
+                        journeysSnapshot.docs.forEach(doc => {
+                            const data = doc.data();
+                            allUpdates.push({
+                                stoneId: stoneDoc.id,
+                                ...data
+                            });
+                        });
                     }
                 }
 
-                // Save to Firestore using the generated ID
-                await db.collection('stones').doc(stoneId).collection('journeys').doc(journeyId).set(journeyData);
+                allUpdates.sort((a, b) => b.timestamp - a.timestamp);
 
-                showSection(4);
-                loadJourneys();
-                
+                allUpdates.slice(0, 20).forEach(update => {
+                    const date = update.timestamp ? update.timestamp.toDate().toLocaleDateString() : 'Recent';
+                    const time = update.timestamp ? update.timestamp.toDate().toLocaleTimeString() : '';
+                    
+                    const entry = document.createElement('div');
+                    entry.className = 'update-entry';
+                    
+                    let photoHtml = '';
+                    if (update.photoData && update.photoData.url) {
+                        photoHtml = `
+                            <img src="${update.photoData.url}" 
+                                alt="Stone location" 
+                                class="update-photo"
+                                onclick="openPhotoModal('${update.photoData.url}')"
+                                loading="lazy"
+                            >
+                        `;
+                    }
+
+                    entry.innerHTML = `
+                        <div class="update-content">
+                            <h3>Stone #${update.stoneId} - 📍 ${update.location}</h3>
+                            <p>${update.message}</p>
+                            <p class="timestamp">${date} ${time}</p>
+                        </div>
+                        ${photoHtml}
+                    `;
+                    recentUpdates.appendChild(entry);
+                });
+
             } catch (error) {
-                console.error("Error adding document: ", error);
-                alert('There was an error submitting your story. Please try again.');
+                console.error("Error loading recent updates:", error);
+            } finally {
+                hideLoading();
             }
         }
 
-        async function loadJourneys() {
-            const journeyCards = document.getElementById('journeyCards');
-            const t = translations[currentLanguage];
-            journeyCards.innerHTML = '';
-            
+        // Load all stones
+        async function loadStones() {
+            showLoading();
             try {
-                const snapshot = await db.collection('stones').doc(stoneId)
+                const stoneIdParam = getUrlParameter('stone');
+                const stonesGrid = document.getElementById('stonesGrid');
+                stonesGrid.innerHTML = '';
+                
+                let totalJourneys = 0;
+                let activeThisMonth = 0;
+                const currentMonth = new Date().getMonth();
+
+                if (stoneIdParam) {
+                    // Load single stone if URL parameter exists
+                    const stoneDoc = await db.collection('stones').doc(stoneIdParam).get();
+                    
+                    if (stoneDoc.exists) {
+                        const journeysSnapshot = await stoneDoc.ref.collection('journeys')
+                            .orderBy('timestamp', 'desc')
+                            .get();
+                        
+                        totalJourneys = journeysSnapshot.size;
+                        
+                        if (journeysSnapshot.size > 0) {
+                            const lastJourney = journeysSnapshot.docs[0].data().timestamp;
+                            if (lastJourney && lastJourney.toDate().getMonth() === currentMonth) {
+                                activeThisMonth++;
+                            }
+                        }
+
+                        const card = document.createElement('div');
+                        card.className = 'stone-card active';
+                        card.innerHTML = `
+                            <h3>#${stoneDoc.id}</h3>
+                            <p>${totalJourneys} journeys</p>
+                        `;
+                        card.onclick = () => selectStone(stoneDoc.id);
+                        stonesGrid.appendChild(card);
+
+                        // Update stats for single stone
+                        document.getElementById('totalStones').textContent = '1';
+                        document.getElementById('totalJourneys').textContent = totalJourneys;
+                        document.getElementById('activeStones').textContent = activeThisMonth;
+
+                        // Automatically select the stone
+                        selectStone(stoneDoc.id);
+                    } else {
+                        stonesGrid.innerHTML = '<p>Stone not found</p>';
+                    }
+                } else {
+                    // Load all stones
+                    const snapshot = await db.collection('stones').get();
+                    
+                    for (const doc of snapshot.docs) {
+                        const journeysSnapshot = await doc.ref.collection('journeys')
+                            .orderBy('timestamp', 'desc')
+                            .get();
+                        
+                        const journeyCount = journeysSnapshot.size;
+                        totalJourneys += journeyCount;
+
+                        if (journeysSnapshot.size > 0) {
+                            const lastJourney = journeysSnapshot.docs[0].data().timestamp;
+                            if (lastJourney && lastJourney.toDate().getMonth() === currentMonth) {
+                                activeThisMonth++;
+                            }
+                        }
+
+                        const card = document.createElement('div');
+                        card.className = 'stone-card';
+                        card.innerHTML = `
+                            <h3>#${doc.id}</h3>
+                            <p>${journeyCount} journeys</p>
+                        `;
+                        card.onclick = () => selectStone(doc.id);
+                        stonesGrid.appendChild(card);
+                    }
+
+                    document.getElementById('totalStones').textContent = snapshot.size;
+                    document.getElementById('totalJourneys').textContent = totalJourneys;
+                    document.getElementById('activeStones').textContent = activeThisMonth;
+                }
+
+            } catch (error) {
+                console.error("Error loading stones:", error);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function initMap() {
+            if (currentMap) {
+                currentMap.remove();
+            }
+
+            currentMap = L.map('journeyMap').setView([0, 0], 2);
+            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '© OpenStreetMap'
+            }).addTo(currentMap);
+
+            // Add a scale control to the map
+            L.control.scale().addTo(currentMap);
+        }
+
+        async function selectStone(stoneId) {
+            showLoading();
+            activeStoneId = stoneId;
+            
+            document.querySelectorAll('.stone-card').forEach(card => {
+                card.classList.remove('active');
+                if (card.querySelector('h3').textContent === `#${stoneId}`) {
+                    card.classList.add('active');
+                }
+            });
+
+            initMap();
+
+            try {
+                const journeysSnapshot = await db.collection('stones')
+                    .doc(stoneId)
                     .collection('journeys')
                     .orderBy('timestamp', 'desc')
                     .get();
 
-                document.getElementById('journeyStats').innerHTML = t.journeyCount.replace('{count}', snapshot.size);
-                
-                document.getElementById('mapTitle').textContent = t.mapTitle;
-                if (currentMap) {
-                    currentMap.remove();
-                }
+                const journeyDetails = document.getElementById('journeyDetails');
+                journeyDetails.innerHTML = `<h2>Stone #${stoneId} Journey History</h2>`;
 
-                currentMap = L.map('journeyMap', {
-                    minZoom: 2,
-                    maxZoom: 19,
-                    scrollWheelZoom: true,
-                    worldCopyJump: true
-                }).setView([0, 0], 2);
-
-                L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    maxZoom: 19,
-                    attribution: '© OpenStreetMap'
-                }).addTo(currentMap);
-
-                const journeys = [];
                 const coordinates = [];
+                const markers = [];
+                const bounds = L.latLngBounds();
 
-                const orderedDocs = [...snapshot.docs].reverse();
+                const orderedDocs = [...journeysSnapshot.docs].reverse();
+                
                 for (const doc of orderedDocs) {
                     const data = doc.data();
                     
@@ -666,68 +617,110 @@
                     if (!coords && data.location) {
                         coords = await getCoordinates(data.location);
                     }
-                    
+
                     if (coords) {
                         coordinates.push([coords.lat, coords.lon]);
-                        journeys.push({
-                            ...data,
-                            coords: coords
-                        });
+                        bounds.extend([coords.lat, coords.lon]);
+                        
+                        let popupContent = `
+                            <div style="max-width: 200px;">
+                                <b>${data.location}</b>
+                                <p style="margin: 5px 0;">${data.message}</p>
+                        `;
+                        
+                        if (data.photoData && data.photoData.url) {
+                            popupContent += `
+                                <img src="${data.photoData.url}" 
+                                    style="width: 100%; border-radius: 4px; margin-top: 5px; cursor: pointer;"
+                                    onclick="openPhotoModal('${data.photoData.url}')"
+                                >
+                            `;
+                        }
+                        
+                        popupContent += '</div>';
+                        
+                        const marker = L.marker([coords.lat, coords.lon])
+                            .addTo(currentMap)
+                            .bindPopup(popupContent);
+                        markers.push(marker);
                     }
                 }
 
                 if (coordinates.length > 0) {
-                    const featureGroup = L.featureGroup().addTo(currentMap);
-                    
                     const path = L.polyline(coordinates, {
                         color: '#3498db',
                         weight: 3,
-                        opacity: 0.8
-                    });
-                    featureGroup.addLayer(path);
+                        opacity: 0.8,
+                        lineCap: 'round',
+                        lineJoin: 'round',
+                        dashArray: '5, 10'
+                    }).addTo(currentMap);
 
-                    journeys.forEach((journey) => {
-                        const marker = L.marker([journey.coords.lat, journey.coords.lon])
-                            .bindPopup(`<b>${t.foundIn} ${journey.location}</b><br>${journey.message}`);
-                        featureGroup.addLayer(marker);
-                    });
-
-                    setTimeout(() => {
-                        currentMap.invalidateSize();
-                        currentMap.fitBounds(featureGroup.getBounds(), {
-                            padding: [50, 50],
-                            animate: true
-                        });
-                    }, 300);
+                    currentMap.fitBounds(bounds, { padding: [50, 50] });
                 }
 
-                journeys.forEach((journey) => {
-                    const date = journey.timestamp ? journey.timestamp.toDate().toLocaleDateString() : 'Recent';
-                    const card = document.createElement('div');
-                    card.className = 'card';
+                journeysSnapshot.docs.forEach(doc => {
+                    const data = doc.data();
+                    const date = data.timestamp ? data.timestamp.toDate().toLocaleDateString() : 'Recent';
+                    const time = data.timestamp ? data.timestamp.toDate().toLocaleTimeString() : '';
                     
                     let photoHtml = '';
-                    if (journey.photoData && journey.photoData.url) {
-                        photoHtml = `<img src="${journey.photoData.url}" alt="Stone location" class="journey-photo">`;
+                    if (data.photoData && data.photoData.url) {
+                        photoHtml = `
+                            <img src="${data.photoData.url}" 
+                                alt="Stone location" 
+                                class="journey-photo"
+                                onclick="openPhotoModal('${data.photoData.url}')"
+                                loading="lazy"
+                            >
+                        `;
                     }
-                    
-                    card.innerHTML = `
-                        <h3>📍 ${t.foundIn} ${journey.location}</h3>
+
+                    const entry = document.createElement('div');
+                    entry.className = 'journey-entry';
+                    entry.innerHTML = `
+                        <h3>📍 ${data.location}</h3>
                         ${photoHtml}
-                        <p>${journey.message}</p>
-                        <p class="timestamp">${t.sharedOn} ${date}</p>
+                        <p>${data.message}</p>
+                        <p style="color: #666; font-size: 0.9em;">${date} ${time}</p>
                     `;
-                    journeyCards.appendChild(card);
+                    journeyDetails.appendChild(entry);
                 });
 
             } catch (error) {
-                console.error("Error loading journeys:", error);
+                console.error("Error loading stone journeys:", error);
+            } finally {
+                hideLoading();
             }
         }
 
-        if (!stoneId) {
-            alert('Please scan the QR code on your stone.');
-        }
+        // Initialize the dashboard
+        window.onload = () => {
+            loadStones();
+            loadRecentUpdates();
+            initMap();
+
+            // Event listeners for modal
+            document.getElementById('photoModal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closePhotoModal();
+                }
+            });
+
+            // Handle escape key for modal
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    closePhotoModal();
+                }
+            });
+
+            // Handle window resize for map
+            window.addEventListener('resize', function() {
+                if (currentMap) {
+                    currentMap.invalidateSize();
+                }
+            });
+        };
     </script>
 </body>
 </html>
