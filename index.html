@@ -340,12 +340,27 @@
             measurementId: "G-CV38E0V9E4"
         };
 
-        // Initialize Firebase
-        const app = firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const storage = firebase.storage();
-        let currentMap = null;
-        let activeStoneId = null;
+        // Initialize Firebase with error handling
+        try {
+            const app = firebase.initializeApp(firebaseConfig);
+            const db = firebase.firestore();
+            const storage = firebase.storage();
+
+            // Add CORS headers for GitHub Pages
+            db.settings({
+                experimentalForceLongPolling: true,
+                merge: true
+            });
+
+            let currentMap = null;
+            let activeStoneId = null;
+
+            // Test the connection immediately
+            db.collection('stones').get()
+                .then(() => console.log('Successfully connected to Firestore'))
+                .catch(error => {
+                    throw new Error(`Firebase connection error: ${error.message}`);
+                });
 
         // Function to get URL parameters
         function getUrlParameter(name) {
@@ -491,13 +506,43 @@
                 const currentMonth = new Date().getMonth();
 
                 if (stoneIdParam) {
-                    // Load single stone if URL parameter exists
-                    console.log('Attempting to load stone:', stoneIdParam);
-                    const stoneRef = db.collection('stones').doc(stoneIdParam);
-                    const stoneDoc = await stoneRef.get();
-                    
-                    console.log('Stone exists:', stoneDoc.exists);
-                    console.log('Stone data:', stoneDoc.data());
+                    try {
+                        console.log('Attempting to load stone:', stoneIdParam);
+                        const stoneRef = db.collection('stones').doc(stoneIdParam);
+                        const stoneDoc = await stoneRef.get();
+                        
+                        if (!stoneDoc.exists) {
+                            throw new Error(`Stone ${stoneIdParam} not found in database`);
+                        }
+
+                        // Test accessing the journeys collection
+                        const journeysRef = stoneRef.collection('journeys');
+                        const journeysTest = await journeysRef.limit(1).get();
+                        console.log('Successfully accessed journeys collection:', !journeysTest.empty);
+
+                        // Rest of the stone loading code...
+                    } catch (error) {
+                        const errorDiv = document.createElement('div');
+                        errorDiv.style.padding = '20px';
+                        errorDiv.style.backgroundColor = '#ffebee';
+                        errorDiv.style.borderRadius = '8px';
+                        errorDiv.style.margin = '20px';
+                        errorDiv.innerHTML = `
+                            <h3 style="color: #c62828; margin: 0 0 10px 0">Error Loading Stone #${stoneIdParam}</h3>
+                            <p style="margin: 0 0 10px 0">${error.message}</p>
+                            <p style="margin: 0; font-family: monospace; font-size: 0.9em">
+                                Technical details: ${error.code || 'No error code available'}
+                            </p>
+                        `;
+                        document.querySelector('.container').prepend(errorDiv);
+                        
+                        // Clear the grids and stats
+                        stonesGrid.innerHTML = '';
+                        document.getElementById('journeyDetails').innerHTML = '';
+                        document.getElementById('totalStones').textContent = '0';
+                        document.getElementById('totalJourneys').textContent = '0';
+                        document.getElementById('activeStones').textContent = '0';
+                    }
 
                     if (stoneDoc.exists) {
                         const journeysSnapshot = await stoneDoc.ref.collection('journeys')
@@ -756,8 +801,15 @@
 
         // Initialize the dashboard
         window.onload = () => {
-            loadStones();
-            loadRecentUpdates();
+            const stoneIdParam = getUrlParameter('stone');
+            if (stoneIdParam) {
+                // If stone ID is in URL, load and select that stone
+                selectStone(stoneIdParam);
+            } else {
+                // Otherwise load all stones as normal
+                loadStones();
+                loadRecentUpdates();
+            }
             initMap();
 
             // Event listeners for modal
