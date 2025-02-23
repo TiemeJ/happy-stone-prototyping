@@ -484,14 +484,21 @@
                 const stonesGrid = document.getElementById('stonesGrid');
                 stonesGrid.innerHTML = '';
                 
+                console.log('Looking for stone:', stoneIdParam);
+
                 let totalJourneys = 0;
                 let activeThisMonth = 0;
                 const currentMonth = new Date().getMonth();
 
                 if (stoneIdParam) {
                     // Load single stone if URL parameter exists
-                    const stoneDoc = await db.collection('stones').doc(stoneIdParam).get();
+                    console.log('Attempting to load stone:', stoneIdParam);
+                    const stoneRef = db.collection('stones').doc(stoneIdParam);
+                    const stoneDoc = await stoneRef.get();
                     
+                    console.log('Stone exists:', stoneDoc.exists);
+                    console.log('Stone data:', stoneDoc.data());
+
                     if (stoneDoc.exists) {
                         const journeysSnapshot = await stoneDoc.ref.collection('journeys')
                             .orderBy('timestamp', 'desc')
@@ -632,11 +639,15 @@
             initMap();
 
             try {
+                console.log('Selecting stone:', stoneId);
                 const journeysSnapshot = await db.collection('stones')
                     .doc(stoneId)
                     .collection('journeys')
                     .orderBy('timestamp', 'desc')
                     .get();
+
+                console.log('Found journeys:', journeysSnapshot.size);
+                console.log('Journey docs:', journeysSnapshot.docs.map(doc => doc.data()));
 
                 const journeyDetails = document.getElementById('journeyDetails');
                 journeyDetails.innerHTML = `<h2>Stone #${stoneId} Journey History</h2>`;
