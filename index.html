@@ -499,13 +499,7 @@
                         
                         totalJourneys = journeysSnapshot.size;
                         
-                        if (journeysSnapshot.size > 0) {
-                            const lastJourney = journeysSnapshot.docs[0].data().timestamp;
-                            if (lastJourney && lastJourney.toDate().getMonth() === currentMonth) {
-                                activeThisMonth++;
-                            }
-                        }
-
+                        // Create the stone card
                         const card = document.createElement('div');
                         card.className = 'stone-card active';
                         card.innerHTML = `
@@ -515,15 +509,58 @@
                         card.onclick = () => selectStone(stoneDoc.id);
                         stonesGrid.appendChild(card);
 
-                        // Update stats for single stone
+                        // Update stats
                         document.getElementById('totalStones').textContent = '1';
                         document.getElementById('totalJourneys').textContent = totalJourneys;
-                        document.getElementById('activeStones').textContent = activeThisMonth;
-
-                        // Automatically select the stone
-                        selectStone(stoneDoc.id);
+                        
+                        if (journeysSnapshot.size > 0) {
+                            const lastJourney = journeysSnapshot.docs[0].data().timestamp;
+                            if (lastJourney && lastJourney.toDate().getMonth() === currentMonth) {
+                                activeThisMonth++;
+                            }
+                            document.getElementById('activeStones').textContent = activeThisMonth;
+                            
+                            // If there are journeys, show them
+                            selectStone(stoneDoc.id);
+                        } else {
+                            // If the stone exists but has no journeys, show a friendly message
+                            const journeyDetails = document.getElementById('journeyDetails');
+                            journeyDetails.innerHTML = `
+                                <div style="text-align: center; padding: 20px;">
+                                    <h2>Stone #${stoneDoc.id}</h2>
+                                    <p style="margin: 20px 0;">This stone exists but hasn't started its journey yet!</p>
+                                    <p style="color: #666;">Check back later to see where it travels.</p>
+                                </div>
+                            `;
+                            document.getElementById('activeStones').textContent = '0';
+                            initMap();
+                        }
                     } else {
-                        stonesGrid.innerHTML = '<p>Stone not found</p>';
+                        const errorMessage = `
+                            <div style="text-align: center; padding: 20px;">
+                                <h3 style="color: #e74c3c; margin-bottom: 10px;">Stone #${stoneIdParam} not found</h3>
+                                <p style="margin-bottom: 20px;">This stone ID doesn't exist in our database.</p>
+                                <a href="?" style="
+                                    display: inline-block;
+                                    padding: 10px 20px;
+                                    background: #84fab0;
+                                    color: #2c3e50;
+                                    text-decoration: none;
+                                    border-radius: 5px;
+                                    transition: background 0.2s;
+                                ">Return to Dashboard</a>
+                            </div>
+                        `;
+                        stonesGrid.innerHTML = errorMessage;
+                        
+                        // Clear journey details and reset map
+                        document.getElementById('journeyDetails').innerHTML = '';
+                        initMap();
+                        
+                        // Update stats to show zeros
+                        document.getElementById('totalStones').textContent = '0';
+                        document.getElementById('totalJourneys').textContent = '0';
+                        document.getElementById('activeStones').textContent = '0';
                     }
                 } else {
                     // Load all stones
