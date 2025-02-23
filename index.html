@@ -800,13 +800,16 @@
         }
 
         // Initialize the dashboard
-        window.onload = () => {
+        window.onload = async () => {
             const stoneIdParam = getUrlParameter('stone');
             if (stoneIdParam) {
-                // If stone ID is in URL, load and select that stone
-                selectStone(stoneIdParam);
+                // First load this specific stone's data
+                const stoneDoc = await db.collection('stones').doc(stoneIdParam).get();
+                if (stoneDoc.exists) {
+                    loadStones();  // This will show the stone card
+                    selectStone(stoneIdParam);  // This will show the stone's details
+                }
             } else {
-                // Otherwise load all stones as normal
                 loadStones();
                 loadRecentUpdates();
             }
