@@ -605,6 +605,18 @@
 
             } catch (error) {
                 console.error("Error loading stones:", error);
+                // Show error on page
+                const errorDiv = document.createElement('div');
+                errorDiv.style.padding = '20px';
+                errorDiv.style.margin = '20px';
+                errorDiv.style.backgroundColor = '#ffebee';
+                errorDiv.style.border = '1px solid #ef9a9a';
+                errorDiv.style.borderRadius = '8px';
+                errorDiv.innerHTML = `
+                    <h3 style="color: #c62828; margin: 0 0 10px 0">Error Loading Data</h3>
+                    <pre style="overflow-x: auto; white-space: pre-wrap;">${error.message}</pre>
+                `;
+                document.querySelector('.container').prepend(errorDiv);
             } finally {
                 hideLoading();
             }
