@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Happy Stones Dashboard</title>
-    <!-- Firebase SDKs -->
+    <title>Stone Journey Tracker</title>
+    <!-- Firebase -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-firestore-compat.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-storage-compat.min.js"></script>
-    <!-- Leaflet -->
+    <!-- Leaflet for maps -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
     <style>
@@ -16,357 +15,142 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
             padding: 20px;
-            background: linear-gradient(120deg, #84fab0 0%, #8fd3f4 100%);
-            min-height: 100vh;
+            background: #f5f5f5;
+            line-height: 1.6;
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1000px;
             margin: 0 auto;
-            background: rgba(255, 255, 255, 0.95);
-            padding: 30px;
-            border-radius: 20px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
         }
 
-        h1, h2 {
-            color: #2c3e50;
-            text-align: center;
-            margin-bottom: 20px;
-        }
-
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: 300px 1fr;
-            gap: 20px;
-            margin-top: 20px;
-        }
-
-        .stones-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-
-        .stone-card {
+        .card {
             background: white;
-            padding: 10px;
-            border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-            border: 1px solid #e0e0e0;
-            cursor: pointer;
-            transition: transform 0.2s;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            padding: 20px;
+        }
+
+        .card-header {
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin: 0;
+            color: #333;
+        }
+
+        .text-center {
             text-align: center;
         }
 
-        .stone-card:hover {
-            transform: translateY(-2px);
-            background: #f8f9fa;
-        }
-
-        .stone-card.active {
-            border: 2px solid #84fab0;
-            background: #f0fff4;
-        }
-
-        .stone-card h3 {
-            margin: 0;
-            font-size: 0.9em;
-            color: #2c3e50;
-        }
-
-        .stone-card p {
-            margin: 5px 0 0;
-            font-size: 0.8em;
-            color: #666;
-        }
-
-        #journeyMap {
+        #journey-map {
             height: 400px;
             width: 100%;
+            border-radius: 8px;
             margin: 20px 0;
-            border-radius: 15px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
-        .journey-details {
-            margin-top: 20px;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 15px;
-            max-height: 600px;
-            overflow-y: auto;
-        }
-
-        .journey-entry {
+        .journey-card {
             background: white;
-            padding: 15px;
-            margin-bottom: 15px;
-            border-radius: 10px;
-            border-left: 4px solid #84fab0;
-        }
-
-        .recent-updates {
-            background: white;
+            border-radius: 12px;
             padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-            max-height: 800px;
-            overflow-y: auto;
-        }
-
-        .update-entry {
-            display: grid;
-            grid-template-columns: 1fr auto;
-            gap: 15px;
-            padding: 15px;
-            margin-bottom: 15px;
-            border-radius: 10px;
-            background: #f8f9fa;
-            border-left: 4px solid #8fd3f4;
-            align-items: start;
-        }
-
-        .update-content {
-            flex: 1;
-        }
-
-        .update-entry h3 {
-            margin: 0 0 5px 0;
-            font-size: 0.9em;
-            color: #2c3e50;
-        }
-
-        .update-entry p {
-            margin: 5px 0;
-            font-size: 0.9em;
-        }
-
-        .update-entry .timestamp {
-            font-size: 0.8em;
-            color: #666;
-        }
-
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
             margin-bottom: 20px;
-        }
-
-        .stat-card {
-            background: white;
-            padding: 10px;
-            border-radius: 10px;
-            text-align: center;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-        }
-
-        .stat-card h3 {
-            margin: 0;
-            font-size: 0.9em;
-            color: #2c3e50;
-        }
-
-        .stat-card p {
-            margin: 5px 0 0 0;
-            font-size: 1.2em;
-            color: #84fab0;
-            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
 
         .journey-photo {
-            max-width: 200px;
+            max-width: 100%;
             border-radius: 8px;
             margin: 10px 0;
-            cursor: pointer;
-            transition: transform 0.2s;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
-        .journey-photo:hover {
-            transform: scale(1.05);
+        .location-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            color: #555;
         }
 
-        .update-photo {
-            width: 100px;
-            height: 100px;
-            object-fit: cover;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: transform 0.2s;
+        .date-info {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 10px;
         }
 
-        .update-photo:hover {
-            transform: scale(1.05);
+        .message-text {
+            color: #333;
+            margin: 10px 0;
         }
 
-        .photo-modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.8);
-            z-index: 1000;
+        .loading {
+            display: flex;
             justify-content: center;
             align-items: center;
+            min-height: 200px;
         }
 
-        .modal-content {
-            max-width: 90%;
-            max-height: 90%;
-            position: relative;
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
         }
 
-        .modal-content img {
-            max-width: 100%;
-            max-height: 90vh;
+        .error-message {
+            background-color: #fee2e2;
+            border: 1px solid #ef4444;
+            color: #dc2626;
+            padding: 16px;
             border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            margin: 20px 0;
         }
 
-        .close-modal {
-            position: absolute;
-            top: -40px;
-            right: -40px;
-            color: white;
-            font-size: 30px;
-            cursor: pointer;
-            background: none;
-            border: none;
-            padding: 10px;
-            transition: transform 0.2s;
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
-        .close-modal:hover {
-            transform: scale(1.1);
-        }
-
-        .loading-indicator {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(255, 255, 255, 0.9);
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            z-index: 1000;
-        }
-
-        @media (max-width: 768px) {
-            .dashboard-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .container {
-                padding: 15px;
-            }
-
-            .journey-photo {
-                max-width: 100%;
-            }
-
-            .update-entry {
-                grid-template-columns: 1fr;
-            }
-
-            .update-photo {
-                width: 100%;
-                height: 200px;
-            }
+        .emoji-icon {
+            font-size: 1.2em;
+            margin-right: 4px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🪨 Happy Stones Dashboard</h1>
-        
-        <!-- Loading Indicator -->
-        <div id="loadingIndicator" class="loading-indicator">
-            Loading...
-        </div>
-
-        <!-- Photo Modal -->
-        <div id="photoModal" class="photo-modal">
-            <div class="modal-content">
-                <button class="close-modal" onclick="closePhotoModal()">×</button>
-                <img id="modalImage" src="" alt="Stone location">
-            </div>
-        </div>
-
-        <div class="stats">
-            <div class="stat-card">
-                <h3>Total Stones</h3>
-                <p id="totalStones">0</p>
-            </div>
-            <div class="stat-card">
-                <h3>Total Journeys</h3>
-                <p id="totalJourneys">0</p>
-            </div>
-            <div class="stat-card">
-                <h3>Active This Month</h3>
-                <p id="activeStones">0</p>
-            </div>
-        </div>
-
-        <div class="dashboard-grid">
-            <div class="recent-updates">
-                <h2>Recent Updates</h2>
-                <div id="recentUpdates"></div>
-            </div>
-
-            <div class="main-content">
-                <div class="stones-grid" id="stonesGrid"></div>
-                <div id="journeyMap"></div>
-                <div class="journey-details" id="journeyDetails"></div>
-            </div>
+        <div id="app">
+            <!-- Content will be loaded here -->
         </div>
     </div>
 
     <script>
-        // Function to get stone ID from URL parameters
-        function getStoneIdFromURL() {
-            const urlParams = new URLSearchParams(window.location.search);
-            return urlParams.get('stone');
-        }
-
-        // Initialize Firebase first
+        // Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyBVMOTMubOV8Y1iEpK-E0TqZC5MptS6jpk",
             authDomain: "happy-stone-tracker.firebaseapp.com",
             projectId: "happy-stone-tracker",
             storageBucket: "happy-stone-tracker.firebasestorage.app",
             messagingSenderId: "454968587977",
-            appId: "1:454968587977:web:cce4e67177cdf8029ebf18",
-            measurementId: "G-CV38E0V9E4"
+            appId: "1:454968587977:web:cce4e67177cdf8029ebf18"
         };
 
         // Initialize Firebase
-        const app = firebase.initializeApp(firebaseConfig);
-        
-        // Initialize Firestore and Storage after app initialization
+        firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
-        const storage = firebase.storage();
         let currentMap = null;
-        let activeStoneId = null;
-
-        // Loading indicator functions
-        function showLoading() {
-            document.getElementById('loadingIndicator').style.display = 'block';
-        }
-
-        function hideLoading() {
-            document.getElementById('loadingIndicator').style.display = 'none';
-        }
 
         async function getCoordinates(locationString) {
             try {
-                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locationString)}`);
+                const response = await fetch(
+                    `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locationString)}`
+                );
                 const data = await response.json();
                 if (data.length > 0) {
                     return {
@@ -381,325 +165,168 @@
             }
         }
 
-        function openPhotoModal(url) {
-            const modal = document.getElementById('photoModal');
-            const modalImg = document.getElementById('modalImage');
-            modal.style.display = 'flex';
-            modalImg.src = url;
-        }
-
-        function closePhotoModal() {
-            const modal = document.getElementById('photoModal');
-            modal.style.display = 'none';
-        }
-
-        // Modified loadRecentUpdates function
-        async function loadRecentUpdates() {
-            const recentUpdates = document.getElementById('recentUpdates');
-            recentUpdates.innerHTML = '';
-            showLoading();
-
-            try {
-                const urlStoneId = getStoneIdFromURL();
-                let allUpdates = [];
-
-                if (urlStoneId) {
-                    // If stone ID is specified, only fetch updates for that stone
-                    const journeysSnapshot = await db.collection('stones')
-                        .doc(urlStoneId)
-                        .collection('journeys')
-                        .orderBy('timestamp', 'desc')
-                        .limit(20)
-                        .get();
-
-                    journeysSnapshot.docs.forEach(doc => {
-                        const data = doc.data();
-                        allUpdates.push({
-                            stoneId: urlStoneId,
-                            ...data
-                        });
-                    });
-                } else {
-                    // Otherwise fetch updates for all stones
-                    const stonesSnapshot = await db.collection('stones').get();
-                    
-                    for (const stoneDoc of stonesSnapshot.docs) {
-                        const journeysSnapshot = await stoneDoc.ref.collection('journeys')
-                            .orderBy('timestamp', 'desc')
-                            .limit(5)
-                            .get();
-
-                        journeysSnapshot.docs.forEach(doc => {
-                            const data = doc.data();
-                            allUpdates.push({
-                                stoneId: stoneDoc.id,
-                                ...data
-                            });
-                        });
-                    }
-                }
-
-                allUpdates.sort((a, b) => b.timestamp - a.timestamp);
-
-                allUpdates.slice(0, 20).forEach(update => {
-                    const date = update.timestamp ? update.timestamp.toDate().toLocaleDateString() : 'Recent';
-                    const time = update.timestamp ? update.timestamp.toDate().toLocaleTimeString() : '';
-                    
-                    const entry = document.createElement('div');
-                    entry.className = 'update-entry';
-                    
-                    let photoHtml = '';
-                    if (update.photoData && update.photoData.url) {
-                        photoHtml = `
-                            <img src="${update.photoData.url}" 
-                                alt="Stone location" 
-                                class="update-photo"
-                                onclick="openPhotoModal('${update.photoData.url}')"
-                                loading="lazy"
-                            >
-                        `;
-                    }
-
-                    entry.innerHTML = `
-                        <div class="update-content">
-                            <h3>Stone #${update.stoneId} - 📍 ${update.location}</h3>
-                            <p>${update.message}</p>
-                            <p class="timestamp">${date} ${time}</p>
-                        </div>
-                        ${photoHtml}
-                    `;
-                    recentUpdates.appendChild(entry);
-                });
-
-            } catch (error) {
-                console.error("Error loading recent updates:", error);
-            } finally {
-                hideLoading();
-            }
-        }
-
-        // Modified loadStones function
-        async function loadStones() {
-            showLoading();
-            try {
-                const urlStoneId = getStoneIdFromURL();
-                let snapshot;
-                
-                if (urlStoneId) {
-                    // If stone ID is specified in URL, only fetch that stone
-                    const stoneDoc = await db.collection('stones').doc(urlStoneId).get();
-                    snapshot = {
-                        docs: stoneDoc.exists ? [stoneDoc] : [],
-                        size: stoneDoc.exists ? 1 : 0
-                    };
-                } else {
-                    // Otherwise fetch all stones
-                    snapshot = await db.collection('stones').get();
-                }
-
-                const stonesGrid = document.getElementById('stonesGrid');
-                stonesGrid.innerHTML = '';
-                
-                let totalJourneys = 0;
-                let activeThisMonth = 0;
-                const currentMonth = new Date().getMonth();
-
-                for (const doc of snapshot.docs) {
-                    const journeysSnapshot = await doc.ref.collection('journeys')
-                        .orderBy('timestamp', 'desc')
-                        .get();
-                    
-                    const journeyCount = journeysSnapshot.size;
-                    totalJourneys += journeyCount;
-
-                    if (journeysSnapshot.size > 0) {
-                        const lastJourney = journeysSnapshot.docs[0].data().timestamp;
-                        if (lastJourney && lastJourney.toDate().getMonth() === currentMonth) {
-                            activeThisMonth++;
-                        }
-                    }
-
-                    const card = document.createElement('div');
-                    card.className = 'stone-card';
-                    card.innerHTML = `
-                        <h3>#${doc.id}</h3>
-                        <p>${journeyCount} journeys</p>
-                    `;
-                    card.onclick = () => selectStone(doc.id);
-                    stonesGrid.appendChild(card);
-                }
-
-                document.getElementById('totalStones').textContent = snapshot.size;
-                document.getElementById('totalJourneys').textContent = totalJourneys;
-                document.getElementById('activeStones').textContent = activeThisMonth;
-
-                // If stone ID is in URL, automatically select it
-                if (urlStoneId && snapshot.docs.length > 0) {
-                    selectStone(urlStoneId);
-                }
-
-            } catch (error) {
-                console.error("Error loading stones:", error);
-            } finally {
-                hideLoading();
-            }
-        }
-
-        function initMap() {
+        function updateMap(journeys) {
             if (currentMap) {
                 currentMap.remove();
             }
 
-            currentMap = L.map('journeyMap').setView([0, 0], 2);
+            currentMap = L.map('journey-map', {
+                minZoom: 2,
+                maxZoom: 19,
+                scrollWheelZoom: true,
+                worldCopyJump: true
+            }).setView([0, 0], 2);
+
             L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 19,
                 attribution: '© OpenStreetMap'
             }).addTo(currentMap);
 
-            // Add a scale control to the map
-            L.control.scale().addTo(currentMap);
+            const coordinates = journeys
+                .filter(journey => journey.coordinates)
+                .map(journey => [journey.coordinates.lat, journey.coordinates.lon]);
+
+            if (coordinates.length > 0) {
+                const featureGroup = L.featureGroup().addTo(currentMap);
+                
+                const path = L.polyline(coordinates, {
+                    color: '#3498db',
+                    weight: 3,
+                    opacity: 0.8
+                });
+                featureGroup.addLayer(path);
+
+                journeys.forEach((journey) => {
+                    if (journey.coordinates) {
+                        const marker = L.marker([journey.coordinates.lat, journey.coordinates.lon])
+                            .bindPopup(`
+                                <b>Found in ${journey.location}</b><br>
+                                ${journey.message}
+                            `);
+                        featureGroup.addLayer(marker);
+                    }
+                });
+
+                currentMap.fitBounds(featureGroup.getBounds(), {
+                    padding: [50, 50],
+                    animate: true
+                });
+            }
         }
 
-        async function selectStone(stoneId) {
-            showLoading();
-            activeStoneId = stoneId;
-            
-            document.querySelectorAll('.stone-card').forEach(card => {
-                card.classList.remove('active');
-                if (card.querySelector('h3').textContent === `#${stoneId}`) {
-                    card.classList.add('active');
-                }
-            });
+        function showLoading() {
+            document.getElementById('app').innerHTML = `
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                </div>
+            `;
+        }
 
-            initMap();
+        function showError(message) {
+            document.getElementById('app').innerHTML = `
+                <div class="error-message">
+                    <h3>Error</h3>
+                    <p>${message}</p>
+                </div>
+            `;
+        }
 
+        function renderJourneys(stoneData, journeys) {
+            const content = `
+                <div class="card">
+                    <div class="card-header text-center">
+                        <h1 class="card-title">🪨 Happy Stone Journey Tracker</h1>
+                    </div>
+                    <div class="text-center">
+                        <p>This stone has spread joy ${journeys.length} times on its journey! ✨</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Journey Map 🗺️</h2>
+                    </div>
+                    <div id="journey-map"></div>
+                </div>
+
+                <div class="journeys">
+                    ${journeys.map(journey => `
+                        <div class="journey-card">
+                            <div class="location-info">
+                                <span class="emoji-icon">📍</span>
+                                <strong>Found in ${journey.location}</strong>
+                            </div>
+                            ${journey.photoData && journey.photoData.url 
+                                ? `<img src="${journey.photoData.url}" alt="Stone location" class="journey-photo">` 
+                                : ''}
+                            <p class="message-text">${journey.message}</p>
+                            <div class="date-info">
+                                <span class="emoji-icon">📅</span>
+                                Shared on ${journey.timestamp ? new Date(journey.timestamp.seconds * 1000).toLocaleDateString() : 'Recent'}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            document.getElementById('app').innerHTML = content;
+            updateMap(journeys);
+        }
+
+        async function loadStoneData(stoneId) {
             try {
-                const journeysSnapshot = await db.collection('stones')
+                // Get stone data
+                const stoneDoc = await db.collection('stones').doc(stoneId).get();
+                if (!stoneDoc.exists) {
+                    showError('Stone not found. Please check the ID and try again.');
+                    return;
+                }
+                
+                const stoneData = stoneDoc.data();
+
+                // Get journey data
+                const journeySnapshot = await db.collection('stones')
                     .doc(stoneId)
                     .collection('journeys')
                     .orderBy('timestamp', 'desc')
                     .get();
 
-                const journeyDetails = document.getElementById('journeyDetails');
-                journeyDetails.innerHTML = `<h2>Stone #${stoneId} Journey History</h2>`;
-
-                const coordinates = [];
-                const markers = [];
-                const bounds = L.latLngBounds();
-
-                const orderedDocs = [...journeysSnapshot.docs].reverse();
-                
-                for (const doc of orderedDocs) {
+                const journeyData = [];
+                for (const doc of journeySnapshot.docs) {
                     const data = doc.data();
                     
-                    let coords = data.coordinates;
-                    if (!coords && data.location) {
-                        coords = await getCoordinates(data.location);
-                    }
-
-                    if (coords) {
-                        coordinates.push([coords.lat, coords.lon]);
-                        bounds.extend([coords.lat, coords.lon]);
-                        
-                        let popupContent = `
-                            <div style="max-width: 200px;">
-                                <b>${data.location}</b>
-                                <p style="margin: 5px 0;">${data.message}</p>
-                        `;
-                        
-                        if (data.photoData && data.photoData.url) {
-                            popupContent += `
-                                <img src="${data.photoData.url}" 
-                                    style="width: 100%; border-radius: 4px; margin-top: 5px; cursor: pointer;"
-                                    onclick="openPhotoModal('${data.photoData.url}')"
-                                >
-                            `;
+                    // Get coordinates if not already present
+                    if (!data.coordinates && data.location) {
+                        const coords = await getCoordinates(data.location);
+                        if (coords) {
+                            data.coordinates = coords;
                         }
-                        
-                        popupContent += '</div>';
-                        
-                        const marker = L.marker([coords.lat, coords.lon])
-                            .addTo(currentMap)
-                            .bindPopup(popupContent);
-                        markers.push(marker);
                     }
-                }
-
-                if (coordinates.length > 0) {
-                    const path = L.polyline(coordinates, {
-                        color: '#3498db',
-                        weight: 3,
-                        opacity: 0.8,
-                        lineCap: 'round',
-                        lineJoin: 'round',
-                        dashArray: '5, 10'
-                    }).addTo(currentMap);
-
-                    currentMap.fitBounds(bounds, { padding: [50, 50] });
-                }
-
-                journeysSnapshot.docs.forEach(doc => {
-                    const data = doc.data();
-                    const date = data.timestamp ? data.timestamp.toDate().toLocaleDateString() : 'Recent';
-                    const time = data.timestamp ? data.timestamp.toDate().toLocaleTimeString() : '';
                     
-                    let photoHtml = '';
-                    if (data.photoData && data.photoData.url) {
-                        photoHtml = `
-                            <img src="${data.photoData.url}" 
-                                alt="Stone location" 
-                                class="journey-photo"
-                                onclick="openPhotoModal('${data.photoData.url}')"
-                                loading="lazy"
-                            >
-                        `;
-                    }
+                    journeyData.push(data);
+                }
 
-                    const entry = document.createElement('div');
-                    entry.className = 'journey-entry';
-                    entry.innerHTML = `
-                        <h3>📍 ${data.location}</h3>
-                        ${photoHtml}
-                        <p>${data.message}</p>
-                        <p style="color: #666; font-size: 0.9em;">${date} ${time}</p>
-                    `;
-                    journeyDetails.appendChild(entry);
-                });
+                renderJourneys(stoneData, journeyData);
 
             } catch (error) {
-                console.error("Error loading stone journeys:", error);
-            } finally {
-                hideLoading();
+                console.error("Error loading stone data:", error);
+                showError('Error loading stone data. Please try again later.');
             }
         }
 
-        // Initialize the dashboard
-        window.onload = () => {
-            loadStones();
-            loadRecentUpdates();
-            initMap();
+        // Start the application
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const stoneId = urlParams.get('stone');
+            
+            if (!stoneId) {
+                showError('No stone ID provided. Please use a valid stone tracking URL.');
+                return;
+            }
 
-            // Event listeners for modal
-            document.getElementById('photoModal').addEventListener('click', function(e) {
-                if (e.target === this) {
-                    closePhotoModal();
-                }
-            });
-
-            // Handle escape key for modal
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape') {
-                    closePhotoModal();
-                }
-            });
-
-            // Handle window resize for map
-            window.addEventListener('resize', function() {
-                if (currentMap) {
-                    currentMap.invalidateSize();
-                }
-            });
-        };
+            showLoading();
+            loadStoneData(stoneId);
+        });
     </script>
 </body>
 </html>
