@@ -1,9 +1,4 @@
-#journeyStats {
-            text-align: center;
-            margin-bottom: 40px;
-            font-weight: 500;
-            color: #34495e;
-        }<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -414,6 +409,24 @@
                     <div class="location-share">
                         <span id="shareLocationText"></span>
                         <button onclick="shareLocation()" id="shareLocationButton" class="share-button"></button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label id="acquisitionLabel"></label>
+                    <div class="radio-group">
+                        <div class="radio-option">
+                            <input type="radio" id="found" name="acquisition" value="found" required>
+                            <label for="found" id="foundLabel"></label>
+                        </div>
+                        <div class="radio-option">
+                            <input type="radio" id="stranger" name="acquisition" value="stranger">
+                            <label for="stranger" id="strangerLabel"></label>
+                        </div>
+                        <div class="radio-option">
+                            <input type="radio" id="known" name="acquisition" value="known">
+                            <label for="known" id="knownLabel"></label>
+                        </div>
                     </div>
                 </div>
 
