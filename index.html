@@ -122,13 +122,21 @@
             margin: 30px 0;
             border-left: 5px solid #8fd3f4;
         }
-        .stone-info {
+        .stone-thumbnail-container {
             text-align: center;
-            margin-bottom: 30px;
-            padding: 20px;
-            background: #f7f9fc;
-            border-radius: 15px;
-            border: 2px solid #8fd3f4;
+            margin: 20px auto;
+            max-width: 150px;
+        }
+        .stone-thumbnail {
+            max-width: 100%;
+            max-height: 150px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .stone-thumbnail:hover {
+            transform: scale(1.05);
         }
         #journeyMap {
             height: 400px;
@@ -390,7 +398,9 @@
         <!-- Section 3: Stone Info and Form -->
         <section id="section3" class="section">
             <h1>🪨 <span class="lang-title">Happy Stone Journey</span></h1>
-            <div id="stoneInfo" class="stone-info"></div>
+            <div id="stoneThumbnailContainer" class="stone-thumbnail-container">
+                <!-- Stone thumbnail will be loaded here -->
+            </div>
             <div id="journeyStats"></div>
             <div id="stoneForm">
                 <div class="form-group">
@@ -731,19 +741,70 @@
 
         async function loadStoneInfo() {
             try {
+                // First check if the stone document exists
                 const stoneDoc = await db.collection('stones').doc(stoneId).get();
-                if (stoneDoc.exists) {
-                    const stoneData = stoneDoc.data();
-                    document.getElementById('stoneInfo').innerHTML = `
-                        <h2>Stone #${stoneId}</h2>
-                        <p>${stoneData.description || 'A happy stone spreading joy!'}</p>
-                    `;
-                } else {
+                if (!stoneDoc.exists) {
+                    // Create the stone document if it doesn't exist
                     await db.collection('stones').doc(stoneId).set({
                         created: firebase.firestore.FieldValue.serverTimestamp(),
                         description: 'A happy stone spreading joy!'
                     });
                 }
+                
+                // Load the stone photo
+                const stoneThumbnailContainer = document.getElementById('stoneThumbnailContainer');
+                stoneThumbnailContainer.innerHTML = '<div class="loading-spinner"></div>';
+                
+                try {
+                    // First look for feature photo in Firestore
+                    const stoneData = stoneDoc.data() || {};
+                    let photoUrl = null;
+                    
+                    if (stoneData.featurePhoto && stoneData.featurePhoto.url) {
+                        photoUrl = stoneData.featurePhoto.url;
+                    } else {
+                        // If not in Firestore, try Storage directly
+                        try {
+                            const storageRef = storage.ref(`stones/${stoneId}/${stoneId}`);
+                            photoUrl = await storageRef.getDownloadURL();
+                            
+                            // Update Firestore for future reference
+                            try {
+                                await db.collection('stones').doc(stoneId).update({
+                                    featurePhoto: {
+                                        url: photoUrl,
+                                        uploadedAt: firebase.firestore.FieldValue.serverTimestamp()
+                                    }
+                                });
+                            } catch (updateError) {
+                                console.error("Error updating Firestore with photo URL:", updateError);
+                            }
+                        } catch (storageError) {
+                            console.log("No feature photo found in Storage:", storageError);
+                        }
+                    }
+                    
+                    // Display the photo or a placeholder
+                    if (photoUrl) {
+                        stoneThumbnailContainer.innerHTML = `
+                            <img src="${photoUrl}" alt="Stone #${stoneId}" class="stone-thumbnail" 
+                                onclick="openPhotoModal('${photoUrl}')">
+                        `;
+                    } else {
+                        // Simple placeholder if no photo
+                        stoneThumbnailContainer.innerHTML = `
+                            <div style="width: 120px; height: 120px; margin: 0 auto; display: flex; align-items: center; 
+                                        justify-content: center; background: #f5f5f5; border-radius: 10px; border: 1px dashed #ccc;">
+                                <p style="color: #666; margin: 0; font-size: 0.8em; text-align: center;">Stone #${stoneId}</p>
+                            </div>
+                        `;
+                    }
+                } catch (photoError) {
+                    console.error("Error loading stone photo:", photoError);
+                    stoneThumbnailContainer.innerHTML = `<p>Error loading stone photo</p>`;
+                }
+                
+                // Load journeys
                 loadJourneys();
             } catch (error) {
                 console.error("Error loading stone info: ", error);
