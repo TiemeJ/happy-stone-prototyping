@@ -1,4 +1,9 @@
-<!DOCTYPE html>
+#journeyStats {
+            text-align: center;
+            margin-bottom: 40px;
+            font-weight: 500;
+            color: #34495e;
+        }<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -413,24 +418,6 @@
                 </div>
 
                 <div class="form-group">
-                    <label id="acquisitionLabel"></label>
-                    <div class="radio-group">
-                        <div class="radio-option">
-                            <input type="radio" id="found" name="acquisition" value="found" required>
-                            <label for="found" id="foundLabel"></label>
-                        </div>
-                        <div class="radio-option">
-                            <input type="radio" id="stranger" name="acquisition" value="stranger">
-                            <label for="stranger" id="strangerLabel"></label>
-                        </div>
-                        <div class="radio-option">
-                            <input type="radio" id="known" name="acquisition" value="known">
-                            <label for="known" id="knownLabel"></label>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="form-group">
                     <label id="messageLabel"></label>
                     <textarea id="message" required></textarea>
                 </div>
@@ -832,9 +819,8 @@
             try {
                 const location = document.getElementById('location').value;
                 const message = document.getElementById('message').value;
-                const acquisition = document.querySelector('input[name="acquisition"]:checked')?.value;
                 
-                if (!location || !message || !acquisition) {
+                if (!location || !message) {
                     alert('Please fill in all fields');
                     return;
                 }
@@ -847,7 +833,7 @@
                     journeyId: journeyId,
                     location: location,
                     message: message,
-                    acquisition: acquisition,
+                    acquisition: "not_specified", // Default value since we removed the question
                     timestamp: firebase.firestore.FieldValue.serverTimestamp()
                 };
 
