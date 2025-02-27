@@ -263,10 +263,91 @@
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         }
+        .stone-photo-container {
+            margin: 30px auto 0;
+            text-align: center;
+            max-width: 300px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            border: 1px solid #e0e0e0;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+        }
+        .stone-photo {
+            max-width: 100%;
+            max-height: 250px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+        .stone-photo:hover {
+            transform: scale(1.05);
+            cursor: pointer;
+        }
+        .photo-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            max-width: 90%;
+            max-height: 90%;
+            position: relative;
+        }
+        .modal-content img {
+            max-width: 100%;
+            max-height: 90vh;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        .close-modal {
+            position: absolute;
+            top: -40px;
+            right: -40px;
+            color: white;
+            font-size: 30px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 10px;
+            transition: transform 0.2s;
+        }
+        .close-modal:hover {
+            transform: scale(1.1);
+        }
+        .loading-spinner {
+            display: block;
+            width: 50px;
+            height: 50px;
+            margin: 20px auto;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #84fab0;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
     <div class="container">
+        <!-- Photo Modal -->
+        <div id="photoModal" class="photo-modal">
+            <div class="modal-content">
+                <button class="close-modal" onclick="closePhotoModal()">×</button>
+                <img id="modalImage" src="" alt="Stone photo">
+            </div>
+        </div>
+
         <!-- Section 1: Language Selection -->
         <section id="section1" class="section active">
             <h1>🪨 Happy Stone Journey</h1>
@@ -277,6 +358,11 @@
             <div class="language-buttons">
                 <button onclick="selectLanguage('en')">Continue in English</button>
                 <button onclick="selectLanguage('nl')">Ga verder in het Nederlands</button>
+            </div>
+            <!-- Added stone photo container below language buttons -->
+            <div id="stonePhotoContainer" class="stone-photo-container">
+                <div class="loading-spinner"></div>
+                <h3>Loading Stone Photo...</h3>
             </div>
         </section>
 
@@ -377,8 +463,7 @@
         let currentMap = null;
         
         // Get stone ID from URL
-        const urlParams = new URLSearchParams(window.
-           location.search);
+        const urlParams = new URLSearchParams(window.location.search);
         const stoneId = urlParams.get('stone');
 
         let currentLanguage = 'en';
@@ -411,7 +496,9 @@
                 journeyCount: 'This stone has spread joy {count} times on its journey! ✨',
                 mapTitle: "Stone's Journey Map 🗺️",
                 locationNotFound: "Location not found on map",
-                dashboardButton: "Want to keep following this stone's journey? Open Dashboard and Bookmark me!"
+                dashboardButton: "Want to keep following this stone's journey? Press this button and Bookmark me!",
+                stonePhotoTitle: "Your Stone",
+                noPhotoAvailable: "No photo available yet"
             },
             nl: {
                 title: 'Happy Stone Reis',
@@ -441,9 +528,96 @@
                 journeyCount: 'Deze steen heeft {count} keer vreugde verspreid tijdens zijn reis! ✨',
                 mapTitle: "Reis van de Steen 🗺️",
                 locationNotFound: "Locatie niet gevonden op de kaart",
-                dashboardButton: "Wil je deze steen blijven volgen? Open Dashboard en voeg bladwijzer toe!"
+                dashboardButton: "Wil je deze steen blijven volgen? Druk op deze knop en voeg bladwijzer toe!",
+                stonePhotoTitle: "Jouw Steen",
+                noPhotoAvailable: "Nog geen foto beschikbaar"
             }
         };
+
+        // Function to open photo modal
+        function openPhotoModal(url) {
+            const modal = document.getElementById('photoModal');
+            const modalImg = document.getElementById('modalImage');
+            modal.style.display = 'flex';
+            modalImg.src = url;
+        }
+
+        // Function to close photo modal
+        function closePhotoModal() {
+            const modal = document.getElementById('photoModal');
+            modal.style.display = 'none';
+        }
+
+        // Load stone photo for the intro page
+        async function loadStonePhoto() {
+            if (!stoneId) {
+                document.getElementById('stonePhotoContainer').innerHTML = `
+                    <p>Please scan the QR code on your stone to see your stone's photo and journey.</p>
+                `;
+                return;
+            }
+
+            try {
+                // First check if the stone has a feature photo in Firestore
+                const stoneDoc = await db.collection('stones').doc(stoneId).get();
+                const stoneData = stoneDoc.data() || {};
+                
+                let photoUrl = null;
+                
+                // Check if there's a feature photo URL in Firestore
+                if (stoneData.featurePhoto && stoneData.featurePhoto.url) {
+                    photoUrl = stoneData.featurePhoto.url;
+                    console.log("Found photo in Firestore:", photoUrl);
+                } else {
+                    // If not in Firestore, try to get it directly from Storage
+                    try {
+                        console.log("Checking Storage for photo: ", `stones/${stoneId}/${stoneId}`);
+                        const storageRef = storage.ref(`stones/${stoneId}/${stoneId}`);
+                        photoUrl = await storageRef.getDownloadURL();
+                        console.log("Found photo in Storage:", photoUrl);
+                        
+                        // Update Firestore with the photo URL for future reference
+                        try {
+                            await db.collection('stones').doc(stoneId).update({
+                                featurePhoto: {
+                                    url: photoUrl,
+                                    uploadedAt: firebase.firestore.FieldValue.serverTimestamp()
+                                }
+                            });
+                            console.log("Updated Firestore with Storage photo URL");
+                        } catch (updateError) {
+                            console.error("Error updating Firestore with photo URL:", updateError);
+                        }
+                    } catch (storageError) {
+                        console.log("No feature photo found in Storage:", storageError);
+                    }
+                }
+                
+                const stonePhotoContainer = document.getElementById('stonePhotoContainer');
+                const t = translations[currentLanguage];
+                
+                if (photoUrl) {
+                    stonePhotoContainer.innerHTML = `
+                        <h3>${t.stonePhotoTitle} #${stoneId}</h3>
+                        <img src="${photoUrl}" alt="Stone #${stoneId}" class="stone-photo" 
+                             onclick="openPhotoModal('${photoUrl}')">
+                    `;
+                } else {
+                    stonePhotoContainer.innerHTML = `
+                        <h3>${t.stonePhotoTitle} #${stoneId}</h3>
+                        <div style="width: 200px; height: 200px; margin: 0 auto; display: flex; align-items: center; 
+                                    justify-content: center; background: #f5f5f5; border-radius: 10px; border: 1px dashed #ccc;">
+                            <p style="color: #666; margin: 0; font-size: 0.9em;">${t.noPhotoAvailable}</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error("Error loading stone photo:", error);
+                document.getElementById('stonePhotoContainer').innerHTML = `
+                    <p>Error loading stone photo. Please try refreshing the page.</p>
+                `;
+            }
+        }
 
         function selectLanguage(lang) {
             currentLanguage = lang;
@@ -451,6 +625,10 @@
                 el.textContent = translations[lang].title;
             });
             updateContent();
+            
+            // Update stone photo text with new language
+            loadStonePhoto();
+            
             showSection(2);
         }
 
@@ -746,9 +924,28 @@
             }
         }
 
-        if (!stoneId) {
-            alert('Please scan the QR code on your stone.');
-        }
+        // Event listeners for modals
+        document.getElementById('photoModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closePhotoModal();
+            }
+        });
+
+        // Handle escape key for modal
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closePhotoModal();
+            }
+        });
+
+        // Load stone photo on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadStonePhoto();
+            
+            if (!stoneId) {
+                alert('Please scan the QR code on your stone.');
+            }
+        });
     </script>
 </body>
 </html>
