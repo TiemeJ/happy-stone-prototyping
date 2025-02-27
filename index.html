@@ -819,8 +819,9 @@
             try {
                 const location = document.getElementById('location').value;
                 const message = document.getElementById('message').value;
+                const acquisition = document.querySelector('input[name="acquisition"]:checked')?.value;
                 
-                if (!location || !message) {
+                if (!location || !message || !acquisition) {
                     alert('Please fill in all fields');
                     return;
                 }
@@ -833,7 +834,7 @@
                     journeyId: journeyId,
                     location: location,
                     message: message,
-                    acquisition: "not_specified", // Default value since we removed the question
+                    acquisition: acquisition,
                     timestamp: firebase.firestore.FieldValue.serverTimestamp()
                 };
 
