@@ -385,6 +385,31 @@
             border-left: 5px solid #8fd3f4;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
+        
+        /* New styles for journey markers - added from dashboard */
+        .journey-marker-container {
+            background: none;
+            border: none;
+        }
+        
+        .journey-marker {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            background-color: #0ead69;
+            color: white;
+            border-radius: 50%;
+            font-weight: bold;
+            font-size: 14px;
+            border: 2px solid white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        
+        .journey-marker-final {
+            background-color: #e74c3c;
+        }
     </style>
 </head>
 <body>
@@ -900,6 +925,7 @@
             }
         }
 
+        // MODIFIED: Updated loadJourneys function with numbered markers
         async function loadJourneys() {
             const journeyCards = document.getElementById('journeyCards');
             const t = translations[currentLanguage];
@@ -930,10 +956,13 @@
                     attribution: '© OpenStreetMap'
                 }).addTo(currentMap);
 
-                const journeys = [];
+                const journeyPoints = [];
                 const coordinates = [];
+                const bounds = L.latLngBounds();
 
+                // Process journey data in chronological order (oldest first)
                 const orderedDocs = [...snapshot.docs].reverse();
+                
                 for (const doc of orderedDocs) {
                     const data = doc.data();
                     
@@ -944,52 +973,87 @@
                     
                     if (coords) {
                         coordinates.push([coords.lat, coords.lon]);
-                        journeys.push({
-                            ...data,
-                            coords: coords
+                        bounds.extend([coords.lat, coords.lon]);
+                        
+                        // Store journey point data for creating markers
+                        journeyPoints.push({
+                            coordinates: [coords.lat, coords.lon],
+                            data: data
                         });
                     }
                 }
 
                 if (coordinates.length > 0) {
-                    const featureGroup = L.featureGroup().addTo(currentMap);
-                    
+                    // Create the journey polyline with dashed styling
                     const path = L.polyline(coordinates, {
                         color: '#3498db',
                         weight: 3,
-                        opacity: 0.8
-                    });
-                    featureGroup.addLayer(path);
+                        opacity: 0.8,
+                        lineCap: 'round',
+                        lineJoin: 'round',
+                        dashArray: '5, 10'
+                    }).addTo(currentMap);
 
-                    journeys.forEach((journey) => {
-                        const marker = L.marker([journey.coords.lat, journey.coords.lon])
-                            .bindPopup(`<b>${t.foundIn} ${journey.location}</b><br>${journey.message}`);
-                        featureGroup.addLayer(marker);
-                    });
-
-                    setTimeout(() => {
-                        currentMap.invalidateSize();
-                        currentMap.fitBounds(featureGroup.getBounds(), {
-                            padding: [50, 50],
-                            animate: true
+                    // Add numbered markers for each location
+                    journeyPoints.forEach((point, index) => {
+                        const isFinalPoint = index === journeyPoints.length - 1;
+                        const data = point.data;
+                        
+                        // Create popup content
+                        let popupContent = `
+                            <div style="max-width: 200px;">
+                                <b>${t.foundIn} ${data.location}</b>
+                                <p style="margin: 5px 0;">${data.message}</p>
+                        `;
+                        
+                        if (data.photoData && data.photoData.url) {
+                            popupContent += `
+                                <img src="${data.photoData.url}" 
+                                    style="width: 100%; border-radius: 4px; margin-top: 5px; cursor: pointer;"
+                                    onclick="openPhotoModal('${data.photoData.url}')"
+                                >
+                            `;
+                        }
+                        
+                        popupContent += '</div>';
+                        
+                        // Create a numbered marker
+                        const markerIcon = L.divIcon({
+                            html: `<div class="journey-marker${isFinalPoint ? ' journey-marker-final' : ''}">${index + 1}</div>`,
+                            className: 'journey-marker-container',
+                            iconSize: [28, 28],
+                            iconAnchor: [14, 14]
                         });
-                    }, 300);
+                        
+                        // Add the marker with popup
+                        L.marker(point.coordinates, {
+                            icon: markerIcon
+                        }).bindPopup(popupContent).addTo(currentMap);
+                    });
+
+                    // Fit map to show all markers
+                    currentMap.fitBounds(bounds, {
+                        padding: [50, 50],
+                        animate: true
+                    });
                 }
 
-                journeys.forEach((journey) => {
-                    const date = journey.timestamp ? journey.timestamp.toDate().toLocaleDateString() : 'Recent';
+                // Create journey cards (in reverse chronological order - newest first)
+                snapshot.docs.forEach((doc) => {
+                    const data = doc.data();
+                    const date = data.timestamp ? data.timestamp.toDate().toLocaleDateString() : 'Recent';
                     const card = document.createElement('div');
                     card.className = 'card';
                     
                     let photoHtml = '';
-                    if (journey.photoData && journey.photoData.url) {
-                        photoHtml = `<img src="${journey.photoData.url}" alt="Stone location" class="journey-photo">`;
+                    if (data.photoData && data.photoData.url) {
+                        photoHtml = `<img src="${data.photoData.url}" alt="Stone location" class="journey-photo" onclick="openPhotoModal('${data.photoData.url}')">`;
                     }
                     
                     card.innerHTML = `
-                        <h3>📍 ${t.foundIn} ${journey.location}</h3>  
+                        <h3>📍 ${t.foundIn} ${data.location}</h3>  
                         ${photoHtml}
-                        <p>${journey.message}</p>
+                        <p>${data.message}</p>
                         <p class="timestamp">${t.sharedOn} ${date}</p>
                     `;
                     journeyCards.appendChild(card);
