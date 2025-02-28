@@ -530,8 +530,12 @@
 
         async function loadStoneData(stoneId) {
             try {
+                console.log("Loading stone data for ID:", stoneId);
+                
                 // Get stone data
                 const stoneDoc = await db.collection('stones').doc(stoneId).get();
+                console.log("Stone document exists:", stoneDoc.exists);
+                
                 if (!stoneDoc.exists) {
                     showError('Stone not found. Please check the ID and try again.');
                     return;
@@ -565,17 +569,37 @@
 
             } catch (error) {
                 console.error("Error loading stone data:", error);
-                showError('Error loading stone data. Please try again later.');
+                showError(`Error loading stone data: ${error.message}. Please make sure your stone ID is correct (e.g., /?stone=stone11).`);
             }
+        }
+
+        // Global stoneId variable
+        let stoneId;
+
+        // Function to extract stoneId from different URL formats
+        function getStoneIdFromUrl() {
+            // First try standard query parameter
+            const urlParams = new URLSearchParams(window.location.search);
+            let id = urlParams.get('stone');
+            
+            // If not found, check if it's in path format like /stone11
+            if (!id) {
+                const pathMatch = window.location.pathname.match(/\/([^\/]+)$/);
+                if (pathMatch && pathMatch[1]) {
+                    id = pathMatch[1];
+                }
+            }
+            
+            return id;
         }
 
         // Start the application
         document.addEventListener('DOMContentLoaded', () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const stoneId = urlParams.get('stone');
+            stoneId = getStoneIdFromUrl();
+            console.log("Stone ID from URL:", stoneId);
             
             if (!stoneId) {
-                showError('No stone ID provided. Please use a valid stone tracking URL.');
+                showError('No stone ID provided. Please use a valid stone tracking URL (e.g., /?stone=stone11).');
                 return;
             }
 
