@@ -388,7 +388,7 @@
             transform: scale(1.02);
         }
 
-        /* Updated photo modal for transparency */
+        /* Updated photo modal for transparency and increased z-index */
         .photo-modal {
             display: none;
             position: fixed;
@@ -397,7 +397,7 @@
             width: 100%;
             height: 100%;
             background: rgba(0,0,0,0.8);
-            z-index: 1000;
+            z-index: 10000; /* Increased from 1000 to 10000 to go above Leaflet controls */
             justify-content: center;
             align-items: center;
         }
@@ -407,6 +407,7 @@
             max-height: 90%;
             position: relative;
             background: transparent;
+            z-index: 10001; /* Ensure content stays above overlay */
         }
 
         .modal-content img {
@@ -428,6 +429,7 @@
             border: none;
             padding: 10px;
             transition: transform 0.2s;
+            z-index: 10002; /* Ensure close button stays above everything */
         }
 
         .close-modal:hover {
@@ -782,15 +784,29 @@
             }
         }
 
+        // Updated function to hide map controls when showing modal
         function openPhotoModal(url) {
             const modal = document.getElementById('photoModal');
             const modalImg = document.getElementById('modalImage');
+            
+            // Hide map controls when opening modal
+            document.querySelectorAll('.leaflet-control-container').forEach(control => {
+                control.style.visibility = 'hidden';
+            });
+            
             modal.style.display = 'flex';
             modalImg.src = url;
         }
 
+        // Updated function to restore map controls when closing modal
         function closePhotoModal() {
             const modal = document.getElementById('photoModal');
+            
+            // Restore map controls when closing modal
+            document.querySelectorAll('.leaflet-control-container').forEach(control => {
+                control.style.visibility = 'visible';
+            });
+            
             modal.style.display = 'none';
         }
 
