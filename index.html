@@ -967,44 +967,86 @@
                     console.error('Could not get coordinates:', coordError);
                 }
 
-                // Handle photo if present
-                if (selectedPhotoFile) {
-                    console.log("Uploading photo:", selectedPhotoFile.name);
+                // Save the journey to Firestore first (without photo)
+                console.log("Saving journey data to Firestore (without photo):", journeyData);
+                await db.collection('stones').doc(stoneId).collection('journeys').doc(journeyId).set(journeyData);
+                console.log("Initial journey data saved successfully");
+                
+                // Handle photo if present - we'll do this in a separate step to avoid issues
+                let photoUploaded = false;
+                if (selectedPhotoFile && document.getElementById('photoPreview').src) {
+                    console.log("Trying to upload photo...");
                     
                     try {
+                        // For iOS compatibility, we'll get the image data from the preview
+                        const photoPreview = document.getElementById('photoPreview');
+                        
+                        // Create a canvas to get the image data
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        
+                        // Create a new image to draw to canvas
+                        const img = new Image();
+                        img.crossOrigin = 'Anonymous';
+                        
+                        // Wait for the image to load before processing
+                        await new Promise((resolve, reject) => {
+                            img.onload = resolve;
+                            img.onerror = reject;
+                            img.src = photoPreview.src;
+                        });
+                        
+                        // Set canvas dimensions to match the image
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        
+                        // Draw the image to canvas
+                        ctx.drawImage(img, 0, 0);
+                        
+                        // Get the image data as a blob (with compression for iOS)
+                        const blob = await new Promise(resolve => {
+                            canvas.toBlob(resolve, 'image/jpeg', 0.8);
+                        });
+                        
+                        if (!blob) {
+                            throw new Error("Failed to create blob from image");
+                        }
+                        
+                        console.log("Successfully created blob from image preview");
+                        
                         // Generate a unique filename
-                        const fileExtension = selectedPhotoFile.name.split('.').pop() || 'jpg';
-                        const filename = `${journeyId}_${Date.now()}.${fileExtension}`;
+                        const filename = `${journeyId}_${Date.now()}.jpg`;
                         
                         // Create a reference to the storage location
                         const photoRef = storage.ref(`stones/${stoneId}/photos/${filename}`);
                         
-                        // Upload the file
-                        const uploadTask = await photoRef.put(selectedPhotoFile);
+                        // Upload the blob
+                        console.log("Starting upload to Firebase Storage...");
+                        const uploadTask = await photoRef.put(blob);
                         console.log("Photo uploaded successfully:", uploadTask);
                         
                         // Get the download URL
                         const photoURL = await photoRef.getDownloadURL();
-                        console.log("Photo URL:", photoURL);
+                        console.log("Got photo URL:", photoURL);
                         
-                        // Add photo data to journey data
-                        journeyData.photoData = {
-                            filename: filename,
-                            url: photoURL,
-                            uploadTimestamp: firebase.firestore.FieldValue.serverTimestamp()
-                        };
+                        // Update the journey data with photo information
+                        await db.collection('stones').doc(stoneId).collection('journeys').doc(journeyId).update({
+                            photoData: {
+                                filename: filename,
+                                url: photoURL,
+                                uploadTimestamp: firebase.firestore.FieldValue.serverTimestamp()
+                            }
+                        });
+                        
+                        console.log("Journey updated with photo data");
+                        photoUploaded = true;
                     } catch (photoError) {
                         console.error('Photo upload failed:', photoError);
                         // We'll continue even if the photo upload fails
                     }
                 } else {
-                    console.log("No photo selected");
+                    console.log("No photo selected for upload");
                 }
-
-                // Save the journey to Firestore
-                console.log("Saving journey data to Firestore:", journeyData);
-                await db.collection('stones').doc(stoneId).collection('journeys').doc(journeyId).set(journeyData);
-                console.log("Journey saved successfully");
 
                 // Clean up
                 if (objectURL) {
@@ -1014,6 +1056,7 @@
                 selectedPhotoFile = null;
                 
                 // Show success
+                console.log("Journey submission complete. Photo uploaded:", photoUploaded);
                 showSection(4);
                 loadJourneys();
                 
