@@ -783,10 +783,12 @@
             dashboardButton.href = `https://tiemej.github.io/Stone-dashboard-specific-stone/?stone=${stoneId}`;
         }
 
-        // Photo handling function - works with both inputs
+        // Photo handling function - works with both inputs and iOS/Android
         function handlePhotoSelect(event) {
             const file = event.target.files[0];
             if (!file) return;
+            
+            console.log("Photo selected:", file.name, "size:", file.size, "type:", file.type);
             
             // Clear any previous object URL to prevent memory leaks
             if (objectURL) {
@@ -801,8 +803,10 @@
             preview.style.display = 'block';
             preview.src = objectURL;
             
-            // Store the file in our global variable
+            // Store the file in our global variable 
             selectedPhotoFile = file;
+            
+            console.log("Photo preview created successfully");
         }
 
         function shareLocation() {
@@ -967,86 +971,107 @@
                     console.error('Could not get coordinates:', coordError);
                 }
 
-                // Save the journey to Firestore first (without photo)
-                console.log("Saving journey data to Firestore (without photo):", journeyData);
-                await db.collection('stones').doc(stoneId).collection('journeys').doc(journeyId).set(journeyData);
-                console.log("Initial journey data saved successfully");
-                
-                // Handle photo if present - we'll do this in a separate step to avoid issues
-                let photoUploaded = false;
-                if (selectedPhotoFile && document.getElementById('photoPreview').src) {
-                    console.log("Trying to upload photo...");
+                // Handle photo if present - trying direct upload first, then fallback method
+                if (selectedPhotoFile) {
+                    console.log("Photo selected for upload");
                     
                     try {
-                        // For iOS compatibility, we'll get the image data from the preview
-                        const photoPreview = document.getElementById('photoPreview');
-                        
-                        // Create a canvas to get the image data
-                        const canvas = document.createElement('canvas');
-                        const ctx = canvas.getContext('2d');
-                        
-                        // Create a new image to draw to canvas
-                        const img = new Image();
-                        img.crossOrigin = 'Anonymous';
-                        
-                        // Wait for the image to load before processing
-                        await new Promise((resolve, reject) => {
-                            img.onload = resolve;
-                            img.onerror = reject;
-                            img.src = photoPreview.src;
-                        });
-                        
-                        // Set canvas dimensions to match the image
-                        canvas.width = img.width;
-                        canvas.height = img.height;
-                        
-                        // Draw the image to canvas
-                        ctx.drawImage(img, 0, 0);
-                        
-                        // Get the image data as a blob (with compression for iOS)
-                        const blob = await new Promise(resolve => {
-                            canvas.toBlob(resolve, 'image/jpeg', 0.8);
-                        });
-                        
-                        if (!blob) {
-                            throw new Error("Failed to create blob from image");
-                        }
-                        
-                        console.log("Successfully created blob from image preview");
-                        
                         // Generate a unique filename
-                        const filename = `${journeyId}_${Date.now()}.jpg`;
+                        const fileExtension = selectedPhotoFile.name?.split('.').pop() || 'jpg';
+                        const filename = `${journeyId}_${Date.now()}.${fileExtension}`;
                         
                         // Create a reference to the storage location
                         const photoRef = storage.ref(`stones/${stoneId}/photos/${filename}`);
                         
-                        // Upload the blob
-                        console.log("Starting upload to Firebase Storage...");
-                        const uploadTask = await photoRef.put(blob);
-                        console.log("Photo uploaded successfully:", uploadTask);
-                        
-                        // Get the download URL
-                        const photoURL = await photoRef.getDownloadURL();
-                        console.log("Got photo URL:", photoURL);
-                        
-                        // Update the journey data with photo information
-                        await db.collection('stones').doc(stoneId).collection('journeys').doc(journeyId).update({
-                            photoData: {
+                        // Try direct file upload first (works best on Android)
+                        try {
+                            console.log("Attempting direct file upload...");
+                            const uploadTask = await photoRef.put(selectedPhotoFile);
+                            console.log("Direct file upload successful:", uploadTask);
+                            
+                            // Get the download URL
+                            const photoURL = await photoRef.getDownloadURL();
+                            console.log("Got photo URL:", photoURL);
+                            
+                            // Add photo data to journey data
+                            journeyData.photoData = {
                                 filename: filename,
                                 url: photoURL,
                                 uploadTimestamp: firebase.firestore.FieldValue.serverTimestamp()
+                            };
+                        } catch (directUploadError) {
+                            // If direct upload fails, try canvas approach (works better on iOS)
+                            console.warn("Direct upload failed, trying canvas approach:", directUploadError);
+                            
+                            // For iOS compatibility, get the image data from the preview
+                            const photoPreview = document.getElementById('photoPreview');
+                            
+                            // Make sure preview is displayed
+                            if (!photoPreview || photoPreview.style.display === 'none') {
+                                throw new Error("Photo preview not available");
                             }
-                        });
-                        
-                        console.log("Journey updated with photo data");
-                        photoUploaded = true;
+                            
+                            // Create a canvas to get the image data
+                            const canvas = document.createElement('canvas');
+                            const ctx = canvas.getContext('2d');
+                            
+                            // Create a new image to draw to canvas
+                            const img = new Image();
+                            
+                            // Wait for the image to load before processing
+                            await new Promise((resolve, reject) => {
+                                img.onload = resolve;
+                                img.onerror = reject;
+                                img.src = photoPreview.src;
+                            });
+                            
+                            // Set canvas dimensions to match the image
+                            canvas.width = img.width;
+                            canvas.height = img.height;
+                            
+                            // Draw the image to canvas
+                            ctx.drawImage(img, 0, 0);
+                            
+                            // Get the image data as a blob (with compression for iOS)
+                            const blob = await new Promise(resolve => {
+                                canvas.toBlob(resolve, 'image/jpeg', 0.8);
+                            });
+                            
+                            if (!blob) {
+                                throw new Error("Failed to create blob from image");
+                            }
+                            
+                            console.log("Successfully created blob from image preview");
+                            
+                            // Upload the blob
+                            console.log("Starting blob upload to Firebase Storage...");
+                            const uploadTask = await photoRef.put(blob);
+                            console.log("Blob upload successful:", uploadTask);
+                            
+                            // Get the download URL
+                            const photoURL = await photoRef.getDownloadURL();
+                            console.log("Got photo URL:", photoURL);
+                            
+                            // Add photo data to journey data
+                            journeyData.photoData = {
+                                filename: filename,
+                                url: photoURL,
+                                uploadTimestamp: firebase.firestore.FieldValue.serverTimestamp()
+                            };
+                        }
                     } catch (photoError) {
-                        console.error('Photo upload failed:', photoError);
-                        // We'll continue even if the photo upload fails
+                        console.error('All photo upload methods failed:', photoError);
+                        alert('Could not upload the photo, but your message will still be saved.');
+                        // Continue without photo
                     }
                 } else {
-                    console.log("No photo selected for upload");
+                    console.log("No photo selected");
                 }
+
+                // Save the journey to Firestore
+                console.log("Saving journey data to Firestore:", journeyData);
+                await db.collection('stones').doc(stoneId).collection('journeys').doc(journeyId).set(journeyData);
+                console.log("Journey saved successfully");
 
                 // Clean up
                 if (objectURL) {
@@ -1056,7 +1081,6 @@
                 selectedPhotoFile = null;
                 
                 // Show success
-                console.log("Journey submission complete. Photo uploaded:", photoUploaded);
                 showSection(4);
                 loadJourneys();
                 
