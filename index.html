@@ -435,6 +435,24 @@
             background: rgba(132, 250, 176, 0.2);
             border: 2px dashed rgba(132, 250, 176, 0.5);
         }
+        
+        /* Camera and Gallery buttons */
+        .photo-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .photo-button {
+            padding: 10px 15px;
+            background: linear-gradient(to right, #84fab0, #8fd3f4);
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            border: none;
+            color: #2c3e50;
+        }
     </style>
 </head>
 <body>
@@ -500,16 +518,12 @@
                 <div class="form-group">
                     <label id="photoLabel"></label>
                     <div class="photo-upload">
-                        <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 10px;">
-                            <label class="upload-button" style="margin: 0;">
-                                <input type="file" id="photoInputCamera" accept="image/*" capture="environment">
-                                <span id="takeCameraPhotoText">Camera</span>
-                            </label>
-                            <label class="upload-button" style="margin: 0;">
-                                <input type="file" id="photoInputGallery" accept="image/*">
-                                <span id="selectGalleryPhotoText">Gallery</span>
-                            </label>
+                        <div class="photo-buttons">
+                            <button type="button" id="cameraButton" class="photo-button" onclick="openCamera()"></button>
+                            <button type="button" id="galleryButton" class="photo-button" onclick="openGallery()"></button>
                         </div>
+                        <input type="file" id="photoInput" accept="image/*" style="display: none;">
+                        <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display: none;">
                         <div class="photo-progress">
                             <div class="progress-bar"></div>
                         </div>
@@ -556,7 +570,7 @@
         const urlParams = new URLSearchParams(window.location.search);
         const stoneId = urlParams.get('stone');
 
-        // Store selected photo file (global variable instead of DOM attribute)
+        // Store selected photo file (global variable)
         let selectedPhotoFile = null;
         let objectURL = null;
 
@@ -572,13 +586,10 @@
                 locationPlaceholder: 'City/Village',
                 shareLocationText: 'Automatically share location',
                 shareLocationButton: 'Share',
-                acquisitionLabel: 'How did you get the stone? 🤔',
-                acquisitionFound: 'I found it',
-                acquisitionStranger: 'I received it from a stranger',
-                acquisitionKnown: 'I received it from someone I know',
                 messageLabel: 'Leave a message for the next person! ✨',
                 photoLabel: 'Take a picture of the stone where you are now! 📸',
-                uploadButton: 'Take Photo',
+                cameraButton: 'Take Photo',
+                galleryButton: 'Choose Photo',
                 submit: 'Share Your Story',
                 nextSteps: `<h3>What to Do Next?</h3>
                     <p>1. Give the stone to an acquaintance, someone you know</p>
@@ -604,13 +615,10 @@
                 locationPlaceholder: 'Stad/Dorp',
                 shareLocationText: 'Automatisch locatie delen',
                 shareLocationButton: 'Delen',
-                acquisitionLabel: 'Hoe ben je aan de steen gekomen? 🤔',
-                acquisitionFound: 'Ik heb hem gevonden',
-                acquisitionStranger: 'Ik kreeg hem van een onbekende',
-                acquisitionKnown: 'Ik kreeg hem van iemand die ik ken',
                 messageLabel: 'Laat een bericht achter voor de volgende persoon! ✨',
                 photoLabel: 'Maak een foto van de steen op de plek waar je nu bent! 📸',
-                uploadButton: 'Foto maken',
+                cameraButton: 'Foto maken',
+                galleryButton: 'Foto kiezen',
                 submit: 'Deel je verhaal',
                 nextSteps: `<h3>Wat nu te doen?</h3>
                     <p>1. Geef de steen aan iemand die je kent</p>
@@ -627,6 +635,16 @@
                 noPhotoAvailable: "Nog geen foto beschikbaar"
             }
         };
+
+        // Function to handle camera button click
+        function openCamera() {
+            document.getElementById('cameraInput').click();
+        }
+
+        // Function to handle gallery button click
+        function openGallery() {
+            document.getElementById('photoInput').click();
+        }
 
         // Function to open photo modal
         function openPhotoModal(url) {
@@ -753,10 +771,11 @@
             document.getElementById('shareLocationText').textContent = t.shareLocationText;
             document.getElementById('shareLocationButton').textContent = t.shareLocationButton;
             document.getElementById('messageLabel').textContent = t.messageLabel;
+            document.getElementById('photoLabel').textContent = t.photoLabel;
+            document.getElementById('cameraButton').textContent = t.cameraButton;
+            document.getElementById('galleryButton').textContent = t.galleryButton;
             document.getElementById('submitButton').textContent = t.submit;
             document.getElementById('nextSteps').innerHTML = t.nextSteps;
-            document.getElementById('photoLabel').textContent = t.photoLabel;
-            document.getElementById('uploadButtonText').textContent = t.uploadButton;
             
             // Update dashboard button
             const dashboardButton = document.getElementById('dashboardButton');
@@ -764,7 +783,7 @@
             dashboardButton.href = `https://tiemej.github.io/Stone-dashboard-specific-stone/?stone=${stoneId}`;
         }
 
-        // Photo handling - FIXED for iOS compatibility
+        // Photo handling function - works with both inputs
         function handlePhotoSelect(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -785,14 +804,6 @@
             // Store the file in our global variable
             selectedPhotoFile = file;
         }
-
-        // Add event listener safely
-        document.addEventListener('DOMContentLoaded', function() {
-            const photoInput = document.getElementById('photoInput');
-            if (photoInput) {
-                photoInput.addEventListener('change', handlePhotoSelect);
-            }
-        });
 
         function shareLocation() {
             if ("geolocation" in navigator) {
@@ -906,7 +917,6 @@
             }
         }
 
-        // FIXED for iOS compatibility
         async function submitStoneJourney() {
             // Show a loading indicator
             const submitButton = document.getElementById('submitButton');
@@ -1017,7 +1027,6 @@
             }
         }
 
-        // Updated loadJourneys function with numbered markers
         async function loadJourneys() {
             const journeyCards = document.getElementById('journeyCards');
             const t = translations[currentLanguage];
@@ -1170,9 +1179,22 @@
             }
         });
 
-        // Load stone photo on page load
+        // Initialize app and set up event listeners
         document.addEventListener('DOMContentLoaded', function() {
+            // Load stone photo
             loadStonePhoto();
+            
+            // Set up photo input event listeners
+            const photoInput = document.getElementById('photoInput');
+            const cameraInput = document.getElementById('cameraInput');
+            
+            if (photoInput) {
+                photoInput.addEventListener('change', handlePhotoSelect);
+            }
+            
+            if (cameraInput) {
+                cameraInput.addEventListener('change', handlePhotoSelect);
+            }
             
             if (!stoneId) {
                 alert('Please scan the QR code on your stone.');
