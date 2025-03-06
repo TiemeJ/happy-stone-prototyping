@@ -500,10 +500,16 @@
                 <div class="form-group">
                     <label id="photoLabel"></label>
                     <div class="photo-upload">
-                        <label class="upload-button">
-                            <input type="file" id="photoInput" accept="image/*">
-                            <span id="uploadButtonText"></span>
-                        </label>
+                        <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 10px;">
+                            <label class="upload-button" style="margin: 0;">
+                                <input type="file" id="photoInputCamera" accept="image/*" capture="environment">
+                                <span id="takeCameraPhotoText">Camera</span>
+                            </label>
+                            <label class="upload-button" style="margin: 0;">
+                                <input type="file" id="photoInputGallery" accept="image/*">
+                                <span id="selectGalleryPhotoText">Gallery</span>
+                            </label>
+                        </div>
                         <div class="photo-progress">
                             <div class="progress-bar"></div>
                         </div>
