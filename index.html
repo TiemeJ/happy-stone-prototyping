@@ -726,50 +726,47 @@
             filter: drop-shadow(0 0 12px rgba(159, 0, 255, 0.5));
         }
 
-        /* Fixed photo modal styles */
-        .photo-modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(15, 22, 49, 0.95);
-            z-index: 10000;
-            justify-content: center;
-            align-items: center;
-            backdrop-filter: blur(5px);
-        }
+       /* Fixed photo modal styles */
+.photo-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(15, 22, 49, 0.95);
+    z-index: 10000;
+    justify-content: center;
+    align-items: flex-start; /* Position at top */
+    backdrop-filter: blur(5px);
+    padding-top: 40px; /* Space from top edge */
+}
 
-        .modal-content {
-            max-width: 90%;
-            max-height: 80vh; /* Ensure it fits on screen */
-            position: relative;
-            background: transparent;
-            z-index: 10001;
-            border: 2px solid var(--primary-accent);
-            border-radius: var(--panel-radius);
-            overflow: hidden;
-            box-shadow: 0 0 30px rgba(0, 229, 255, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
+.modal-content {
+    width: auto; /* Auto width based on content */
+    max-width: 70%; /* Allow more width but still constrained */
+    max-height: 60vh; /* Allow more height for taller images */
+    position: relative;
+    background: transparent;
+    z-index: 10001;
+    border: 2px solid var(--primary-accent);
+    border-radius: var(--panel-radius);
+    overflow: hidden;
+    box-shadow: 0 0 30px rgba(0, 229, 255, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
 
-        .modal-content::before {
-            content: "";
-            position: absolute;
-            top: -3px;
-            left: -3px;
-            right: -3px;
-            bottom: -3px;
-            background: linear-gradient(45deg, var(--primary-accent), var(--secondary-accent), var(--tertiary-accent), var(--primary-accent));
-            background-size: 400% 400%;
-            z-index: -1;
-            border-radius: calc(var(--panel-radius) + 3px);
-            animation: gradient-border 3s ease infinite;
-            opacity: 0.7;
-        }
+.modal-content img {
+    max-width: 100%;
+    max-height: 55vh; /* Allow more height for the image */
+    border-radius: var(--panel-radius);
+    filter: drop-shadow(0 0 20px rgba(0, 229, 255, 0.3));
+    background: transparent;
+    display: block;
+    object-fit: contain; /* Maintain aspect ratio */
+}
 
         @keyframes gradient-border {
             0% { background-position: 0% 50%; }
@@ -1706,23 +1703,43 @@
             }
         }
 
-        // Updated function to hide map controls when showing modal - Fixed positioning
-        function openPhotoModal(url) {
-            const modal = document.getElementById('photoModal');
-            const modalImg = document.getElementById('modalImage');
-            
-            // Hide map controls when opening modal
-            document.querySelectorAll('.leaflet-control-container').forEach(control => {
-                control.style.visibility = 'hidden';
-            });
-            
-            // Center modal in viewport
-            window.scrollTo(0, 0);
-            document.body.style.overflow = 'hidden'; // Prevent scrolling when modal is open
-            
-            modal.style.display = 'flex';
-            modalImg.src = url;
+function openPhotoModal(url) {
+    const modal = document.getElementById('photoModal');
+    const modalImg = document.getElementById('modalImage');
+    const modalContent = document.querySelector('.modal-content');
+    
+    // Hide map controls when opening modal
+    document.querySelectorAll('.leaflet-control-container').forEach(control => {
+        control.style.visibility = 'hidden';
+    });
+    
+    // Force scroll to top of page before showing modal
+    window.scrollTo(0, 0);
+    document.body.style.overflow = 'hidden'; // Prevent scrolling when modal is open
+    
+    // Pre-load the image to adjust modal sizing based on aspect ratio
+    const tempImg = new Image();
+    tempImg.onload = function() {
+        // Determine if image is landscape or portrait
+        const isLandscape = tempImg.width > tempImg.height;
+        
+        // Apply different dimensions based on orientation
+        if (isLandscape) {
+            modalContent.style.width = 'auto';
+            modalContent.style.maxWidth = '70%';
+        } else {
+            // For portrait images, limit width more to avoid too-tall images
+            modalContent.style.width = 'auto';
+            modalContent.style.maxWidth = '50%';
         }
+        
+        // Now display the modal with correct dimensions
+        modal.style.display = 'flex';
+        modalImg.src = url;
+    };
+    
+    tempImg.src = url;
+}
 
         // Updated function to restore map controls when closing modal
         function closePhotoModal() {
