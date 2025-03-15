@@ -413,30 +413,32 @@
         }
 
         /* Stones grid - modified for better fit */
-        .stones-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
-        }
+.stones-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); /* Wider minimum */
+    gap: 12px; /* Slightly reduced gap */
+    margin-bottom: 20px;
+}
 
-        .stone-card {
-            background: rgba(26, 35, 66, 0.7);
-            padding: 12px 8px;
-            border-radius: var(--panel-radius);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(0, 229, 255, 0.2);
-            cursor: pointer;
-            transition: transform 0.3s, box-shadow 0.3s, border-color 0.3s;
-            text-align: center;
-            position: relative;
-            overflow: hidden;
-            height: 90px; /* Fixed height for consistency */
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: space-between;
-        }
+.stone-card {
+    background: rgba(26, 35, 66, 0.7);
+    padding: 12px 6px; /* Reduced side padding */
+    border-radius: var(--panel-radius);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(0, 229, 255, 0.2);
+    cursor: pointer;
+    transition: transform 0.3s, box-shadow 0.3s, border-color 0.3s;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    height: 90px; /* Fixed height for consistency */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    min-width: 0; /* Allow shrinking below content size */
+}
 
         .stone-card::after {
             content: '';
@@ -466,16 +468,17 @@
             box-shadow: 0 0 15px rgba(0, 255, 157, 0.2);
         }
 
-        .stone-card h3 {
-            margin: 0;
-            font-size: 0.9em;
-            color: var(--text-primary);
-            font-family: 'Orbitron', sans-serif;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            width: 100%;
-        }
+.stone-card h3 {
+    margin: 0;
+    font-size: 0.85em; /* Slightly smaller */
+    color: var(--text-primary);
+    font-family: 'Orbitron', sans-serif;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; /* Add ellipsis if text overflows */
+    width: 100%;
+    padding: 0 2px; /* Small padding inside */
+}
 
         .stone-card p {
             margin: 5px 0 0;
