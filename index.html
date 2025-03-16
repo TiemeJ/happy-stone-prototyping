@@ -729,7 +729,7 @@
             filter: drop-shadow(0 0 12px rgba(159, 0, 255, 0.5));
         }
 
-       /* Fixed photo modal styles */
+/* Base modal container with improved tablet support */
 .photo-modal {
     display: none;
     position: fixed;
@@ -740,15 +740,17 @@
     background: rgba(15, 22, 49, 0.95);
     z-index: 10000;
     justify-content: center;
-    align-items: flex-start; /* Position at top */
+    align-items: flex-start;
     backdrop-filter: blur(5px);
-    padding-top: 40px; /* Space from top edge */
+    padding-top: 40px;
+    box-sizing: border-box; /* Ensure padding is included in height */
 }
 
+/* Modal content with better responsive containment */
 .modal-content {
-    width: auto; /* Auto width based on content */
-    max-width: 70%; /* Allow more width but still constrained */
-    max-height: 60vh; /* Allow more height for taller images */
+    width: auto;
+    max-width: 70%;
+    max-height: 60vh;
     position: relative;
     background: transparent;
     z-index: 10001;
@@ -759,16 +761,52 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    box-sizing: border-box; /* Ensure border is included in size */
+    padding: 0; /* Remove any accidental padding */
 }
 
+/* Image with guaranteed containment */
 .modal-content img {
     max-width: 100%;
-    max-height: 55vh; /* Allow more height for the image */
-    border-radius: var(--panel-radius);
+    max-height: 55vh;
+    border-radius: calc(var(--panel-radius) - 2px); /* Account for border */
     filter: drop-shadow(0 0 20px rgba(0, 229, 255, 0.3));
     background: transparent;
     display: block;
     object-fit: contain; /* Maintain aspect ratio */
+    margin: 0; /* Ensure no margins push content out */
+}
+
+/* Tablet-specific adjustments */
+@media (max-width: 1024px) and (min-width: 601px) {
+    .photo-modal {
+        padding-top: 20px; /* Less top padding on tablets */
+    }
+    
+    .modal-content {
+        max-width: 85%; /* Wider on tablets */
+        max-height: 65vh; /* Slightly taller on tablets */
+    }
+    
+    .modal-content img {
+        max-height: 60vh; /* Allow slightly more height on tablets */
+    }
+}
+
+/* Phone-specific adjustments */
+@media (max-width: 600px) {
+    .photo-modal {
+        padding-top: 10px; /* Minimal top padding on phones */
+    }
+    
+    .modal-content {
+        max-width: 90%; /* Even wider on phones */
+        max-height: 70vh; /* More vertical space on phones */
+    }
+    
+    .modal-content img {
+        max-height: 65vh; /* Allow more height on phones */
+    }
 }
 
         @keyframes gradient-border {
@@ -1720,25 +1758,83 @@ function openPhotoModal(url) {
     window.scrollTo(0, 0);
     document.body.style.overflow = 'hidden'; // Prevent scrolling when modal is open
     
+    // Reset any previous inline styles to start fresh
+    modalContent.style.width = '';
+    modalContent.style.maxWidth = '';
+    modalContent.style.height = '';
+    modalContent.style.maxHeight = '';
+    
     // Pre-load the image to adjust modal sizing based on aspect ratio
     const tempImg = new Image();
     tempImg.onload = function() {
         // Determine if image is landscape or portrait
         const isLandscape = tempImg.width > tempImg.height;
+        const aspectRatio = tempImg.width / tempImg.height;
         
-        // Apply different dimensions based on orientation
+        // Get device information
+        const isTablet = window.innerWidth <= 1024 && window.innerWidth > 600;
+        const isPhone = window.innerWidth <= 600;
+        
+        // Apply different dimensions based on orientation and device
         if (isLandscape) {
-            modalContent.style.width = 'auto';
-            modalContent.style.maxWidth = '70%';
+            if (isPhone) {
+                modalContent.style.maxWidth = '90%';
+            } else if (isTablet) {
+                modalContent.style.maxWidth = '85%';
+            } else {
+                modalContent.style.maxWidth = '70%';
+            }
         } else {
             // For portrait images, limit width more to avoid too-tall images
-            modalContent.style.width = 'auto';
-            modalContent.style.maxWidth = '50%';
+            if (isPhone) {
+                modalContent.style.maxWidth = '80%';
+            } else if (isTablet) {
+                modalContent.style.maxWidth = '60%';
+            } else {
+                modalContent.style.maxWidth = '50%';
+            }
+        }
+        
+        // Extreme aspect ratio handling
+        if (aspectRatio > 2.5 || aspectRatio < 0.4) {
+            // For very wide or very tall images, add extra constraints
+            if (aspectRatio > 2.5) {
+                // Very wide image
+                modalContent.style.maxWidth = isPhone ? '95%' : '90%';
+            } else {
+                // Very tall image
+                const heightLimit = isPhone ? '75vh' : (isTablet ? '70vh' : '65vh');
+                modalImg.style.maxHeight = heightLimit;
+            }
         }
         
         // Now display the modal with correct dimensions
         modal.style.display = 'flex';
         modalImg.src = url;
+        
+        // Final check - ensure image is visible by adjusting padding if needed
+        setTimeout(() => {
+            const rect = modalContent.getBoundingClientRect();
+            if (rect.top < 0) {
+                // If modal is cut off at top, adjust padding
+                modal.style.paddingTop = (isPhone ? '20px' : '30px');
+            }
+        }, 50);
+    };
+    
+    tempImg.onerror = function() {
+        // Handle image loading errors
+        console.error("Error loading image: " + url);
+        // Display modal with error handling
+        modal.style.display = 'flex';
+        modalImg.src = ''; // Clear the image
+        modalImg.alt = 'Image could not be loaded';
+        modalContent.innerHTML = `
+            <div style="padding: 20px; color: var(--primary-accent); text-align: center;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 2em; margin-bottom: 10px;"></i>
+                <p>Image could not be loaded</p>
+            </div>
+        `;
     };
     
     tempImg.src = url;
