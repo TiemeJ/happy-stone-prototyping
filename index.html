@@ -729,7 +729,7 @@
             filter: drop-shadow(0 0 12px rgba(159, 0, 255, 0.5));
         }
 
-/* Base modal container with improved tablet support */
+/* Photo modal container */
 .photo-modal {
     display: none;
     position: fixed;
@@ -742,15 +742,13 @@
     justify-content: center;
     align-items: flex-start;
     backdrop-filter: blur(5px);
-    padding-top: 40px;
-    box-sizing: border-box; /* Ensure padding is included in height */
+    padding-top: 10%; /* Dynamic padding will be applied via JavaScript */
+    box-sizing: border-box;
 }
 
-/* Modal content with better responsive containment */
+/* Modal content container */
 .modal-content {
-    width: auto;
-    max-width: 70%;
-    max-height: 60vh;
+    /* Size will be set dynamically via JavaScript */
     position: relative;
     background: transparent;
     z-index: 10001;
@@ -761,36 +759,67 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    box-sizing: border-box; /* Ensure border is included in size */
-    padding: 0; /* Remove any accidental padding */
+    box-sizing: border-box;
+    padding: 0;
 }
 
-/* Image with guaranteed containment */
+/* Modal content image */
 .modal-content img {
     max-width: 100%;
-    max-height: 55vh;
-    border-radius: calc(var(--panel-radius) - 2px); /* Account for border */
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    border-radius: calc(var(--panel-radius) - 2px);
     filter: drop-shadow(0 0 20px rgba(0, 229, 255, 0.3));
     background: transparent;
     display: block;
-    object-fit: contain; /* Maintain aspect ratio */
-    margin: 0; /* Ensure no margins push content out */
+    object-fit: contain;
+    margin: 0;
 }
 
-/* Tablet-specific adjustments */
-@media (max-width: 1024px) and (min-width: 601px) {
-    .photo-modal {
-        padding-top: 20px; /* Less top padding on tablets */
-    }
-    
-    .modal-content {
-        max-width: 85%; /* Wider on tablets */
-        max-height: 65vh; /* Slightly taller on tablets */
-    }
-    
-    .modal-content img {
-        max-height: 60vh; /* Allow slightly more height on tablets */
-    }
+/* Close button styling */
+.close-modal {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    color: var(--primary-accent);
+    font-size: 30px;
+    cursor: pointer;
+    background: rgba(15, 22, 49, 0.7);
+    border: 1px solid var(--primary-accent);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: all 0.3s;
+    z-index: 10002;
+    text-shadow: 0 0 10px var(--primary-accent);
+}
+
+.close-modal:hover {
+    transform: rotate(90deg) scale(1.2);
+    color: var(--tertiary-accent);
+    border-color: var(--tertiary-accent);
+}
+
+/* Added glow effect to modal border for better visibility */
+.modal-content::before {
+    content: "";
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(45deg, var(--primary-accent), var(--secondary-accent), var(--tertiary-accent), var(--primary-accent));
+    background-size: 400% 400%;
+    z-index: -1;
+    border-radius: calc(var(--panel-radius) + 2px);
+    opacity: 0.7;
+    animation: gradient-border 3s ease infinite;
+    pointer-events: none;
 }
 
 /* Phone-specific adjustments */
@@ -1748,6 +1777,7 @@ function openPhotoModal(url) {
     const modal = document.getElementById('photoModal');
     const modalImg = document.getElementById('modalImage');
     const modalContent = document.querySelector('.modal-content');
+    const closeBtn = document.querySelector('.close-modal');
     
     // Hide map controls when opening modal
     document.querySelectorAll('.leaflet-control-container').forEach(control => {
@@ -1758,81 +1788,147 @@ function openPhotoModal(url) {
     window.scrollTo(0, 0);
     document.body.style.overflow = 'hidden'; // Prevent scrolling when modal is open
     
-    // Reset any previous inline styles to start fresh
-    modalContent.style.width = '';
-    modalContent.style.maxWidth = '';
-    modalContent.style.height = '';
-    modalContent.style.maxHeight = '';
+    // Reset any previous inline styles
+    modalContent.style = '';
+    modalImg.style = '';
     
-    // Pre-load the image to adjust modal sizing based on aspect ratio
+    // Show the modal first with loading indicator
+    modal.style.display = 'flex';
+    
+    // Add a loading indicator
+    const loadingIndicator = document.createElement('div');
+    loadingIndicator.style.position = 'absolute';
+    loadingIndicator.style.top = '50%';
+    loadingIndicator.style.left = '50%';
+    loadingIndicator.style.transform = 'translate(-50%, -50%)';
+    loadingIndicator.style.color = 'var(--primary-accent)';
+    loadingIndicator.style.fontSize = '1.5em';
+    loadingIndicator.innerHTML = '<i class="fas fa-sync fa-spin"></i>';
+    modalContent.appendChild(loadingIndicator);
+    
+    // Pre-load the image to get its natural dimensions
     const tempImg = new Image();
     tempImg.onload = function() {
-        // Determine if image is landscape or portrait
-        const isLandscape = tempImg.width > tempImg.height;
-        const aspectRatio = tempImg.width / tempImg.height;
+        // Remove loading indicator
+        if (loadingIndicator.parentNode) {
+            loadingIndicator.parentNode.removeChild(loadingIndicator);
+        }
         
-        // Get device information
-        const isTablet = window.innerWidth <= 1024 && window.innerWidth > 600;
-        const isPhone = window.innerWidth <= 600;
+        // Get image natural dimensions
+        const imgWidth = tempImg.width;
+        const imgHeight = tempImg.height;
+        const aspectRatio = imgWidth / imgHeight;
         
-        // Apply different dimensions based on orientation and device
-        if (isLandscape) {
-            if (isPhone) {
-                modalContent.style.maxWidth = '90%';
-            } else if (isTablet) {
-                modalContent.style.maxWidth = '85%';
-            } else {
-                modalContent.style.maxWidth = '70%';
+        // Calculate the available space (accounting for zoom level)
+        const availableWidth = window.innerWidth * 0.9; // 90% of window width
+        const availableHeight = window.innerHeight * 0.8; // 80% of window height
+        
+        // Calculate padding (for top spacing)
+        const topPadding = window.innerHeight * 0.1; // 10% of window height
+        modal.style.paddingTop = `${topPadding}px`;
+        
+        // Calculate optimal dimensions that will fit within available space
+        let finalWidth, finalHeight;
+        
+        if (aspectRatio > 1) { // Landscape image
+            // Start with filling available width
+            finalWidth = Math.min(availableWidth, imgWidth);
+            finalHeight = finalWidth / aspectRatio;
+            
+            // If height exceeds available height, scale down
+            if (finalHeight > availableHeight) {
+                finalHeight = availableHeight;
+                finalWidth = finalHeight * aspectRatio;
             }
-        } else {
-            // For portrait images, limit width more to avoid too-tall images
-            if (isPhone) {
-                modalContent.style.maxWidth = '80%';
-            } else if (isTablet) {
-                modalContent.style.maxWidth = '60%';
-            } else {
-                modalContent.style.maxWidth = '50%';
+        } else { // Portrait image
+            // Start with filling available height
+            finalHeight = Math.min(availableHeight, imgHeight);
+            finalWidth = finalHeight * aspectRatio;
+            
+            // If width exceeds available width, scale down
+            if (finalWidth > availableWidth) {
+                finalWidth = availableWidth;
+                finalHeight = finalWidth / aspectRatio;
             }
         }
         
-        // Extreme aspect ratio handling
-        if (aspectRatio > 2.5 || aspectRatio < 0.4) {
-            // For very wide or very tall images, add extra constraints
-            if (aspectRatio > 2.5) {
-                // Very wide image
-                modalContent.style.maxWidth = isPhone ? '95%' : '90%';
-            } else {
-                // Very tall image
-                const heightLimit = isPhone ? '75vh' : (isTablet ? '70vh' : '65vh');
-                modalImg.style.maxHeight = heightLimit;
-            }
-        }
+        // Apply fixed pixel dimensions to the modal content
+        // This is crucial for zoom resistance - using pixels instead of percentages
+        modalContent.style.width = `${finalWidth}px`;
+        modalContent.style.height = `${finalHeight}px`;
         
-        // Now display the modal with correct dimensions
-        modal.style.display = 'flex';
+        // Apply dimensions to the image
+        modalImg.style.maxWidth = '100%';
+        modalImg.style.maxHeight = '100%';
+        modalImg.style.width = 'auto';
+        modalImg.style.height = 'auto';
+        
+        // Set the image source
         modalImg.src = url;
         
-        // Final check - ensure image is visible by adjusting padding if needed
-        setTimeout(() => {
-            const rect = modalContent.getBoundingClientRect();
-            if (rect.top < 0) {
-                // If modal is cut off at top, adjust padding
-                modal.style.paddingTop = (isPhone ? '20px' : '30px');
+        // Make sure close button is visible and positioned correctly
+        if (closeBtn) {
+            closeBtn.style.position = 'absolute';
+            closeBtn.style.top = '10px';
+            closeBtn.style.right = '10px';
+        }
+        
+        // Handle window resize (including zoom changes)
+        const handleResize = function() {
+            // Recalculate available space
+            const newAvailableWidth = window.innerWidth * 0.9;
+            const newAvailableHeight = window.innerHeight * 0.8;
+            const newTopPadding = window.innerHeight * 0.1;
+            
+            // Update modal padding
+            modal.style.paddingTop = `${newTopPadding}px`;
+            
+            // Recalculate optimal dimensions
+            let newFinalWidth, newFinalHeight;
+            
+            if (aspectRatio > 1) { // Landscape
+                newFinalWidth = Math.min(newAvailableWidth, imgWidth);
+                newFinalHeight = newFinalWidth / aspectRatio;
+                
+                if (newFinalHeight > newAvailableHeight) {
+                    newFinalHeight = newAvailableHeight;
+                    newFinalWidth = newFinalHeight * aspectRatio;
+                }
+            } else { // Portrait
+                newFinalHeight = Math.min(newAvailableHeight, imgHeight);
+                newFinalWidth = newFinalHeight * aspectRatio;
+                
+                if (newFinalWidth > newAvailableWidth) {
+                    newFinalWidth = newAvailableWidth;
+                    newFinalHeight = newFinalWidth / aspectRatio;
+                }
             }
-        }, 50);
+            
+            // Update modal content dimensions
+            modalContent.style.width = `${newFinalWidth}px`;
+            modalContent.style.height = `${newFinalHeight}px`;
+        };
+        
+        // Add resize listener
+        window.addEventListener('resize', handleResize);
+        
+        // Store the resize handler to remove it when modal closes
+        modal._resizeHandler = handleResize;
     };
     
     tempImg.onerror = function() {
+        // Remove loading indicator
+        if (loadingIndicator.parentNode) {
+            loadingIndicator.parentNode.removeChild(loadingIndicator);
+        }
+        
         // Handle image loading errors
         console.error("Error loading image: " + url);
-        // Display modal with error handling
-        modal.style.display = 'flex';
-        modalImg.src = ''; // Clear the image
-        modalImg.alt = 'Image could not be loaded';
         modalContent.innerHTML = `
             <div style="padding: 20px; color: var(--primary-accent); text-align: center;">
                 <i class="fas fa-exclamation-triangle" style="font-size: 2em; margin-bottom: 10px;"></i>
                 <p>Image could not be loaded</p>
+                <button class="close-modal" onclick="closePhotoModal()">×</button>
             </div>
         `;
     };
@@ -1841,17 +1937,32 @@ function openPhotoModal(url) {
 }
 
         // Updated function to restore map controls when closing modal
-        function closePhotoModal() {
-            const modal = document.getElementById('photoModal');
-            
-            // Restore map controls when closing modal
-            document.querySelectorAll('.leaflet-control-container').forEach(control => {
-                control.style.visibility = 'visible';
-            });
-            
-            document.body.style.overflow = ''; // Restore scrolling
-            modal.style.display = 'none';
-        }
+function closePhotoModal() {
+    const modal = document.getElementById('photoModal');
+    
+    // Restore map controls when closing modal
+    document.querySelectorAll('.leaflet-control-container').forEach(control => {
+        control.style.visibility = 'visible';
+    });
+    
+    // Restore scrolling
+    document.body.style.overflow = '';
+    
+    // Remove resize event listener if exists
+    if (modal._resizeHandler) {
+        window.removeEventListener('resize', modal._resizeHandler);
+        delete modal._resizeHandler;
+    }
+    
+    modal.style.display = 'none';
+    
+    // Reset modal content
+    const modalContent = document.querySelector('.modal-content');
+    const modalImg = document.getElementById('modalImage');
+    if (modalImg) {
+        modalImg.src = '';
+    }
+}
 
         // Function to find the best performing stone
         async function findBestPerformingStone() {
