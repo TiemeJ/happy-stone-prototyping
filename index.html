@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stone Journey Tracker</title>
+    <title>Happy Stone Journey</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Stone Tracker">
-    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3310/3310788.png">
-    <meta name="theme-color" content="#84fab0">
+    <meta name="apple-mobile-web-app-title" content="Happy Stone">
+    <link rel="apple-touch-icon" id="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3310/3310788.png">
+    <meta name="theme-color" content="#a6f7c8">
     <link rel="manifest" href="#manifest">
     <script type="application/json" id="manifest">
         {
-          "name": "Stone Journey Tracker",
-          "short_name": "Stone Tracker",
+          "name": "Happy Stone Journey",
+          "short_name": "Happy Stone",
           "icons": [
             {
               "src": "https://cdn-icons-png.flaticon.com/512/3310/3310788.png",
@@ -23,8 +23,8 @@
           ],
           "start_url": "./",
           "display": "standalone",
-          "background_color": "#84fab0",
-          "theme_color": "#84fab0"
+          "background_color": "#a6f7c8",
+          "theme_color": "#a6f7c8"
         }
     </script>
     <!-- Firebase -->
@@ -765,10 +765,18 @@
                 const blob = new Blob([manifestJSON], {type: 'application/json'});
                 const manifestUrl = URL.createObjectURL(blob);
                 
-                const linkEl = document.querySelector('link[rel="manifest"]');
-                if (linkEl) {
-                    linkEl.href = manifestUrl;
+                // Get or create the manifest link element
+                let linkEl = document.querySelector('link[rel="manifest"]');
+                if (!linkEl) {
+                    linkEl = document.createElement('link');
+                    linkEl.rel = "manifest";
+                    document.head.appendChild(linkEl);
                 }
+                
+                // Update the manifest URL
+                linkEl.href = manifestUrl;
+                
+                console.log("Manifest installed:", manifestUrl);
             }
         }
 
@@ -836,6 +844,9 @@
                         <img src="${photoUrl}" alt="Stone #${stoneId}" class="stone-photo" 
                              onclick="openPhotoModal('${photoUrl}')">
                     `;
+                    
+                    // Update the app icon to use the stone photo
+                    updateAppIcon(photoUrl);
                 } else {
                     stonePhotoContainer.innerHTML = `
                         <h3>Your Stone</h3>
@@ -849,6 +860,40 @@
             } catch (error) {
                 console.error("Error loading stone photo:", error);
                 return false;
+            }
+        }
+        
+        // Function to update app icon with the stone photo
+        function updateAppIcon(photoUrl) {
+            try {
+                // Update Apple touch icon
+                const appleIcon = document.getElementById('apple-touch-icon');
+                if (appleIcon) {
+                    appleIcon.href = photoUrl;
+                }
+                
+                // Update manifest icon
+                const manifestEl = document.getElementById('manifest');
+                if (manifestEl) {
+                    const manifestData = JSON.parse(manifestEl.textContent);
+                    if (manifestData && manifestData.icons && manifestData.icons.length > 0) {
+                        manifestData.icons[0].src = photoUrl;
+                        manifestEl.textContent = JSON.stringify(manifestData, null, 2);
+                        
+                        // Regenerate the manifest blob URL
+                        installManifest();
+                    }
+                }
+                
+                // Add a specific meta tag for this stone's icon
+                const stoneIconMeta = document.createElement('link');
+                stoneIconMeta.rel = 'icon';
+                stoneIconMeta.href = photoUrl;
+                document.head.appendChild(stoneIconMeta);
+                
+                console.log("Updated app icon with stone photo");
+            } catch (error) {
+                console.error("Error updating app icon:", error);
             }
         }
 
