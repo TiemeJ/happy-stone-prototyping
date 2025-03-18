@@ -20,21 +20,11 @@
         }
         .container {
             max-width: 800px;
-            width: 95%;
             margin: 0 auto;
             background: rgba(255, 255, 255, 0.95);
-            padding: 30px 20px;
+            padding: 30px;
             border-radius: 20px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-        }
-        
-        @media (max-width: 480px) {
-            .container {
-                padding: 20px 15px;
-            }
-            h1 {
-                font-size: 1.6em;
-            }
         }
         .section {
             display: none;
@@ -50,10 +40,7 @@
             text-align: center;
             margin-bottom: 15px;
             margin-top: 15px;
-            font-size: 1.8em;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            font-size: 2em;
         }
         .language-buttons {
             display: flex;
@@ -444,19 +431,6 @@
             border: 2px dashed rgba(132, 250, 176, 0.5);
         }
         
-        /* Title styling to ensure it fits on one line */
-        .title-container {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-        
-        .stone-emoji {
-            display: inline-block;
-            margin-right: 5px;
-        }
-        
         /* Camera and Gallery buttons */
         .photo-buttons {
             display: flex;
@@ -488,7 +462,7 @@
 
         <!-- Section 1: Language Selection -->
         <section id="section1" class="section active">
-            <h1><span class="title-container"><span class="stone-emoji">🪨</span> Happy Stone Journey</span></h1>
+            <h1>🪨 Happy Stone Journey</h1>
             <div class="welcome-message">
                 <h2>Welcome!</h2>
                 <p>To share your location and message, choose your language/Om je locatie en bericht te delen, kies je taal</p>
@@ -506,7 +480,7 @@
 
         <!-- Section 2: Project Explanation -->
         <section id="section2" class="section">
-            <h1><span class="title-container"><span class="stone-emoji">🪨</span> <span class="lang-title">Happy Stone Journey</span></span></h1>
+            <h1>🪨 <span class="lang-title">Happy Stone Journey</span></h1>
             <div class="welcome-message">
                 <div id="explanation"></div>
             </div>
@@ -753,10 +727,6 @@
             document.querySelectorAll('.lang-title').forEach(el => {
                 el.textContent = translations[lang].title;
             });
-            
-            // Also update the page title
-            document.title = translations[lang].title;
-            
             updateContent();
             
             // Update stone photo text with new language
