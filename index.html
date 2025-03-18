@@ -652,15 +652,24 @@
             modal.style.display = 'none';
         }
 
-        // Function to open bookmark modal
         function openBookmarkModal() {
             document.getElementById('bookmarkName').textContent = `Stone Journey #${stoneId}`;
             document.getElementById('bookmarkModal').style.display = 'flex';
+            
+            // Temporarily hide the map container to prevent controls showing through modal
+            if (document.getElementById('journey-map')) {
+                document.getElementById('journey-map').style.visibility = 'hidden';
+            }
         }
 
         // Function to close bookmark modal
         function closeBookmarkModal() {
             document.getElementById('bookmarkModal').style.display = 'none';
+            
+            // Restore map visibility
+            if (document.getElementById('journey-map')) {
+                document.getElementById('journey-map').style.visibility = 'visible';
+            }
         }
 
         // Function to try to bookmark the page
@@ -1069,6 +1078,13 @@
                 if (e.key === 'Escape') {
                     closePhotoModal();
                     closeBookmarkModal();
+                }
+            });
+            
+            // Add event listener for before unload to handle visibility
+            window.addEventListener('beforeunload', function() {
+                if (document.getElementById('journey-map')) {
+                    document.getElementById('journey-map').style.visibility = 'visible';
                 }
             });
         });
