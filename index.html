@@ -162,7 +162,7 @@
         }
         
         #journeyMap {
-            height: 200px; /* Changed from 400px to 200px to make it half the length */
+            height: 400px;
             width: 100%;
             margin: 20px 0;
             border-radius: 15px;
@@ -174,11 +174,6 @@
             background: #f8f9fa;
             border-radius: 15px;
             border-left: 5px solid #84fab0;
-        }
-        .map-title {
-            text-align: center;
-            margin-bottom: 15px;
-            color: #2c3e50;
         }
         .location-share {
             display: flex;
@@ -540,6 +535,7 @@
         <section id="section4" class="section">
             <h1>🪨 <span class="lang-title">Happy Stone Journey</span></h1>
             <div class="map-container">
+                <!-- Removed the map title h3 element to make it more compact -->
                 <div id="journeyMap"></div>
             </div>
             <div class="next-steps" id="nextSteps"></div>
@@ -599,7 +595,6 @@
                 foundIn: 'Found in',
                 sharedOn: 'Shared on',
                 journeyCount: 'This stone has spread joy {count} times on its journey! ✨',
-                mapTitle: "",
                 locationNotFound: "Location not found on map",
                 dashboardButton: "Want to keep following this stone's journey? Press this button and Bookmark me!",
                 stonePhotoTitle: "Your Stone",
@@ -628,7 +623,6 @@
                 foundIn: 'Gevonden in',
                 sharedOn: 'Gedeeld op',
                 journeyCount: 'Deze steen heeft {count} keer vreugde verspreid tijdens zijn reis! ✨',
-                mapTitle: "",
                 locationNotFound: "Locatie niet gevonden op de kaart",
                 dashboardButton: "Wil je deze steen blijven volgen? Druk op deze knop en voeg bladwijzer toe!",
                 stonePhotoTitle: "Jouw Steen",
@@ -1107,7 +1101,8 @@
 
                 document.getElementById('journeyStats').innerHTML = t.journeyCount.replace('{count}', snapshot.size);
                 
-                // Map title removed for more compact display
+                // Removed the line that sets map title text
+                
                 if (currentMap) {
                     currentMap.remove();
                 }
