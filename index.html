@@ -4,6 +4,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stone Journey Tracker</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Stone Tracker">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3310/3310788.png">
+    <meta name="theme-color" content="#84fab0">
+    <link rel="manifest" href="#manifest">
+    <script type="application/json" id="manifest">
+        {
+          "name": "Stone Journey Tracker",
+          "short_name": "Stone Tracker",
+          "icons": [
+            {
+              "src": "https://cdn-icons-png.flaticon.com/512/3310/3310788.png",
+              "sizes": "192x192",
+              "type": "image/png"
+            }
+          ],
+          "start_url": "./",
+          "display": "standalone",
+          "background_color": "#84fab0",
+          "theme_color": "#84fab0"
+        }
+    </script>
     <!-- Firebase -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-firestore-compat.min.js"></script>
@@ -294,6 +317,13 @@
             cursor: pointer;
             font-size: 0.9rem;
         }
+        
+        .install-badge {
+            display: block;
+            width: 150px;
+            height: auto;
+            margin: 10px 5px;
+        }
 
         .bookmark-btn:hover {
             transform: translateY(-2px);
@@ -331,6 +361,34 @@
             margin: 15px 0;
             font-size: 0.9rem;
             line-height: 1.4;
+        }
+        
+        .device-instructions {
+            background: #f8f9fa;
+            border-left: 3px solid #8fd3f4;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        
+        .instruction-step {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            gap: 8px;
+        }
+        
+        .step-number {
+            background: #84fab0;
+            color: #2c3e50;
+            font-weight: bold;
+            width: 22px;
+            height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-size: 12px;
         }
 
         .close-bookmark-modal {
@@ -384,16 +442,47 @@
         <div id="bookmarkModal" class="bookmark-modal">
             <div class="bookmark-modal-content">
                 <button class="close-bookmark-modal" onclick="closeBookmarkModal()">×</button>
-                <h3>Bookmark This Page</h3>
+                <h3>Add to Home Screen</h3>
                 <div class="bookmark-instructions">
-                    <p>To bookmark this page and follow this stone's journey:</p>
-                    <ul>
-                        <li><strong>On PC/Mac:</strong> Press <kbd>Ctrl+D</kbd> (Windows) or <kbd>⌘+D</kbd> (Mac)</li>
-                        <li><strong>On Mobile:</strong> Tap the share icon <span class="emoji-icon">📤</span> and select "Add to Bookmarks" or "Add to Home Screen"</li>
-                    </ul>
-                    <p>Bookmark name: <strong id="bookmarkName">Stone Journey Tracker</strong></p>
+                    <p>Add this stone's journey to your home screen for easy access:</p>
+                    
+                    <div class="device-instructions">
+                        <h4>On Android:</h4>
+                        <div class="instruction-step">
+                            <div class="step-number">1</div>
+                            <div>Tap the menu icon (⋮) in Chrome</div>
+                        </div>
+                        <div class="instruction-step">
+                            <div class="step-number">2</div>
+                            <div>Select "Add to Home screen"</div>
+                        </div>
+                        <div class="instruction-step">
+                            <div class="step-number">3</div>
+                            <div>Tap "Add" to confirm</div>
+                        </div>
+                    </div>
+                    
+                    <div class="device-instructions">
+                        <h4>On iPhone/iPad:</h4>
+                        <div class="instruction-step">
+                            <div class="step-number">1</div>
+                            <div>Tap the share icon (📤) at the bottom of Safari</div>
+                        </div>
+                        <div class="instruction-step">
+                            <div class="step-number">2</div>
+                            <div>Scroll down and tap "Add to Home Screen"</div>
+                        </div>
+                        <div class="instruction-step">
+                            <div class="step-number">3</div>
+                            <div>Tap "Add" in the top-right corner</div>
+                        </div>
+                    </div>
+                    
+                    <p>Name: <strong id="bookmarkName">Stone Journey Tracker</strong></p>
                 </div>
-                <button class="bookmark-btn" onclick="tryBookmark()">Try to Bookmark Now</button>
+                <div style="display: flex; justify-content: center; flex-wrap: wrap; margin-top: 15px;">
+                    <button class="bookmark-btn" onclick="closeBookmarkModal()">Got it!</button>
+                </div>
             </div>
         </div>
 
@@ -445,16 +534,46 @@
         }
 
         // Function to try to bookmark the page
-        function tryBookmark() {
-            // Try to bookmark programmatically (will work in some older browsers)
-            if (window.sidebar && window.sidebar.addPanel) { // Firefox
-                window.sidebar.addPanel(document.title, window.location.href, '');
-            } else if (window.external && ('AddFavorite' in window.external)) { // IE
-                window.external.AddFavorite(window.location.href, document.title);
-            } else { 
-                // Modern browsers don't allow JavaScript to add bookmarks
-                // The modal already shows manual instructions
-                alert("Press Ctrl+D (Windows) or Cmd+D (Mac) to bookmark this page");
+        // Register service worker for PWA capabilities
+        function registerServiceWorker() {
+            if ('serviceWorker' in navigator) {
+                // Create a simple service worker on the fly
+                const swContent = `
+                    self.addEventListener('install', (event) => {
+                        self.skipWaiting();
+                    });
+                    
+                    self.addEventListener('activate', (event) => {
+                        return self.clients.claim();
+                    });
+                    
+                    self.addEventListener('fetch', (event) => {
+                        event.respondWith(fetch(event.request));
+                    });
+                `;
+                
+                // Create a blob with the service worker content
+                const blob = new Blob([swContent], {type: 'text/javascript'});
+                const swUrl = URL.createObjectURL(blob);
+                
+                navigator.serviceWorker.register(swUrl)
+                    .then(() => console.log('Service worker registered'))
+                    .catch(err => console.error('SW registration failed:', err));
+            }
+        }
+        
+        // Generate and install web app manifest
+        function installManifest() {
+            const manifestEl = document.getElementById('manifest');
+            if (manifestEl) {
+                const manifestJSON = manifestEl.textContent;
+                const blob = new Blob([manifestJSON], {type: 'application/json'});
+                const manifestUrl = URL.createObjectURL(blob);
+                
+                const linkEl = document.querySelector('link[rel="manifest"]');
+                if (linkEl) {
+                    linkEl.href = manifestUrl;
+                }
             }
         }
 
@@ -662,7 +781,7 @@
                 </div>
 
                 <button class="bookmark-btn" onclick="openBookmarkModal()">
-                    <span class="emoji-icon">🔖</span> Bookmark this page to follow my continued journey
+                    <span class="emoji-icon">📱</span> Add to Home Screen to follow my journey
                 </button>
 
                 <div id="stone-photo-container" class="stone-photo-container">
@@ -777,6 +896,10 @@
 
         // Start the application
         document.addEventListener('DOMContentLoaded', () => {
+            // Setup PWA capabilities
+            installManifest();
+            registerServiceWorker();
+            
             stoneId = getStoneIdFromUrl();
             console.log("Stone ID from URL:", stoneId);
             
