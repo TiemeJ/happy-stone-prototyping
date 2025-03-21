@@ -1,41 +1,126 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Firebase Test</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase Test for iOS 16</title>
+    <!-- Firebase 8.10.1 - known to work better with older iOS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/8.10.1/firebase-app.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/8.10.1/firebase-firestore.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            background-color: #f5f5f5;
+            min-height: 50px;
+        }
+        button {
+            background: #4285f4;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+    </style>
 </head>
 <body>
-    <div id="result">Testing...</div>
+    <h1>Firebase Compatibility Test</h1>
+    <p>This page tests if Firebase 8.10.1 works with your iOS version.</p>
+    <p>Your device info will appear below.</p>
+    
+    <div id="deviceInfo"></div>
+    
+    <button onclick="runTest()">Run Firebase Test</button>
+    
+    <div id="result" class="result">Test results will appear here...</div>
     
     <script>
-        // Firebase configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyBVMOTMubOV8Y1iEpK-E0TqZC5MptS6jpk",
-            authDomain: "happy-stone-tracker.firebaseapp.com",
-            projectId: "happy-stone-tracker",
-            storageBucket: "happy-stone-tracker.firebasestorage.app",
-            messagingSenderId: "454968587977",
-            appId: "1:454968587977:web:cce4e67177cdf8029ebf18"
-        };
+        // Show device info
+        const userAgent = navigator.userAgent;
+        const isIOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
+        let iOSVersion = 0;
+        
+        if (isIOS) {
+            const match = navigator.userAgent.match(/OS (\d+)_(\d+)_?(\d+)?/);
+            iOSVersion = match ? parseInt(match[1], 10) : "unknown";
+        }
+        
+        document.getElementById('deviceInfo').innerHTML = `
+            <p><strong>Device appears to be iOS:</strong> ${isIOS}</p>
+            <p><strong>iOS Version:</strong> ${iOSVersion}</p>
+            <p><strong>User Agent:</strong> ${userAgent}</p>
+        `;
+        
+        function runTest() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = 'result';
+            resultDiv.textContent = "Initializing Firebase...";
+            
+            try {
+                // Firebase configuration
+                const firebaseConfig = {
+                    apiKey: "AIzaSyBVMOTMubOV8Y1iEpK-E0TqZC5MptS6jpk",
+                    authDomain: "happy-stone-tracker.firebaseapp.com",
+                    projectId: "happy-stone-tracker",
+                    storageBucket: "happy-stone-tracker.firebasestorage.app",
+                    messagingSenderId: "454968587977",
+                    appId: "1:454968587977:web:cce4e67177cdf8029ebf18"
+                };
 
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        
-        // Simple test
-        document.getElementById('result').innerText = "Firebase initialized. Testing Firestore...";
-        
-        db.collection('test').doc('test').set({
-            timestamp: new Date().toISOString()
-        })
-        .then(() => {
-            document.getElementById('result').innerText = "Success! Firebase is working.";
-        })
-        .catch(error => {
-            document.getElementById('result').innerText = "Error: " + error.message;
-            console.error("Full error:", error);
-        });
+                // Initialize Firebase
+                if (firebase.apps.length === 0) {
+                    firebase.initializeApp(firebaseConfig);
+                }
+                
+                resultDiv.textContent = "Firebase initialized. Testing Firestore...";
+                
+                // Get Firestore instance
+                const db = firebase.firestore();
+                
+                // Try a simple operation
+                const testDoc = db.collection('test_compatibility').doc(Date.now().toString());
+                
+                testDoc.set({
+                    device: userAgent,
+                    isIOS: isIOS,
+                    iOSVersion: iOSVersion,
+                    timestamp: new Date().toISOString(),
+                    test: "simple_write_test"
+                })
+                .then(() => {
+                    resultDiv.textContent = "SUCCESS! Firebase is working on your device.";
+                    resultDiv.className = 'result success';
+                })
+                .catch(error => {
+                    resultDiv.innerHTML = `ERROR: ${error.message}<br><br>See console for details.`;
+                    resultDiv.className = 'result error';
+                    console.error("Firebase operation failed:", error);
+                });
+            } catch (error) {
+                resultDiv.innerHTML = `ERROR during initialization: ${error.message}<br><br>See console for details.`;
+                resultDiv.className = 'result error';
+                console.error("Firebase initialization failed:", error);
+            }
+        }
     </script>
 </body>
 </html>
