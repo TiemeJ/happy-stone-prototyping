@@ -449,13 +449,7 @@
             color: #2c3e50;
         }
 
-        /* iOS compatibility adjustments */
-        input[type="file"] {
-            -webkit-appearance: none;
-            appearance: none;
-        }
-        
-        /* Error message styles */
+        /* iOS compatibility specific styles */
         .error-message {
             color: #e74c3c;
             background-color: rgba(231, 76, 60, 0.1);
@@ -465,6 +459,29 @@
             border-radius: 4px;
             font-size: 14px;
             display: none;
+        }
+        
+        .version-notice {
+            background-color: #f9f9f9;
+            border-left: 3px solid #2c3e50;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        /* Direct file upload form for older iOS */
+        #legacyUploadForm {
+            display: none;
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        /* Fix for iOS modal scrolling */
+        .modal-open {
+            position: fixed;
+            overflow: hidden;
+            width: 100%;
         }
     </style>
 </head>
@@ -494,6 +511,7 @@
                 <div class="loading-spinner"></div>
                 <h3>Loading Stone Photo...</h3>
             </div>
+            <div id="versionInfo" class="version-notice" style="display: none;"></div>
         </section>
 
         <!-- Section 2: Project Explanation -->
@@ -590,9 +608,36 @@
         let selectedPhotoFile = null;
         let objectURL = null;
         
-        // Detect iOS - used for iOS-specific handling
+        // iOS detection and version checking
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-        console.log("Device is iOS:", isIOS);
+        let iOSVersion = 0;
+        
+        // Function to get iOS version - returns 0 if not iOS
+        function getiOSVersion() {
+            if (!isIOS) return 0;
+            
+            const match = navigator.userAgent.match(/OS (\d+)_(\d+)_?(\d+)?/);
+            return match ? parseInt(match[1], 10) : 0;
+        }
+        
+        // Check iOS version
+        iOSVersion = getiOSVersion();
+        const useLegacyMode = isIOS && iOSVersion < 18;
+        
+        console.log("Device info - iOS:", isIOS, "Version:", iOSVersion, "Legacy Mode:", useLegacyMode);
+        
+        // Show version info if on iOS
+        function showVersionInfo() {
+            const versionInfo = document.getElementById('versionInfo');
+            if (isIOS) {
+                versionInfo.style.display = 'block';
+                versionInfo.innerHTML = `
+                    <p>iOS ${iOSVersion} detected. ${useLegacyMode ? 
+                    'Using compatible mode for your device.' : 
+                    'Using standard mode for your device.'}</p>
+                `;
+            }
+        }
 
         let currentLanguage = 'en';
         const translations = {
@@ -625,7 +670,8 @@
                 noPhotoAvailable: "No photo available yet",
                 photoUploadError: "There was a problem uploading your photo. Please try again.",
                 formSubmitError: "There was a problem submitting your story. Please try again.",
-                uploading: "Uploading..."
+                uploading: "Uploading...",
+                legacyModeActive: "Your device is using a compatible mode for photo handling."
             },
             nl: {
                 title: 'Happy Stone Reis',
@@ -656,9 +702,22 @@
                 noPhotoAvailable: "Nog geen foto beschikbaar",
                 photoUploadError: "Er was een probleem bij het uploaden van je foto. Probeer het opnieuw.",
                 formSubmitError: "Er was een probleem bij het indienen van je verhaal. Probeer het opnieuw.",
-                uploading: "Uploaden..."
+                uploading: "Uploaden...",
+                legacyModeActive: "Je apparaat gebruikt een compatibele modus voor fotoverwerking."
             }
         };
+
+        // Helper function to show errors
+        function showError(elementId, message) {
+            const errorElement = document.getElementById(elementId);
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                errorElement.style.display = 'none';
+            }, 5000);
+        }
 
         // Function to handle camera button click
         function openCamera() {
@@ -674,26 +733,77 @@
         function openPhotoModal(url) {
             const modal = document.getElementById('photoModal');
             const modalImg = document.getElementById('modalImage');
-            modal.style.display = 'flex';
-            modalImg.src = url;
+            
+            // For iOS versions, we need to explicitly preload the image
+            if (useLegacyMode) {
+                const tempImg = new Image();
+                tempImg.onload = function() {
+                    modal.style.display = 'flex';
+                    modalImg.src = url;
+                    document.body.classList.add('modal-open');
+                };
+                tempImg.onerror = function() {
+                    alert('Could not load the image. Please try again.');
+                };
+                tempImg.src = url;
+            } else {
+                modal.style.display = 'flex';
+                modalImg.src = url;
+                document.body.classList.add('modal-open');
+            }
         }
 
         // Function to close photo modal
         function closePhotoModal() {
             const modal = document.getElementById('photoModal');
             modal.style.display = 'none';
+            document.body.classList.remove('modal-open');
         }
 
-        // Helper function to show errors
-        function showError(elementId, message) {
-            const errorElement = document.getElementById(elementId);
-            errorElement.textContent = message;
-            errorElement.style.display = 'block';
+        // Helper function to load image with retries - for improved reliability on iOS
+        async function loadImageWithRetry(url, retries = 3, delay = 1000) {
+            let lastError = null;
             
-            // Auto-hide after 5 seconds
-            setTimeout(() => {
-                errorElement.style.display = 'none';
-            }, 5000);
+            for (let i = 0; i < retries; i++) {
+                try {
+                    console.log(`Attempt ${i+1} to load image: ${url}`);
+                    
+                    // For legacy mode, use a simpler approach
+                    if (useLegacyMode) {
+                        return new Promise((resolve, reject) => {
+                            const img = new Image();
+                            img.onload = () => resolve(url);
+                            img.onerror = (e) => reject(new Error(`Failed to load image: ${e.message}`));
+                            img.src = url;
+                        });
+                    }
+                    
+                    // Standard approach for modern browsers
+                    const response = await fetch(url, { 
+                        method: 'GET',
+                        mode: 'cors',
+                        cache: 'no-cache',
+                        credentials: 'same-origin',
+                        headers: { 'Accept': 'image/*' }
+                    });
+                    
+                    if (response.ok) {
+                        console.log("Image fetch succeeded");
+                        return url;
+                    }
+                    
+                    lastError = new Error(`HTTP error: ${response.status}`);
+                    console.log(`Attempt ${i+1} failed: ${response.status}`);
+                } catch (error) {
+                    lastError = error;
+                    console.error(`Load attempt ${i+1} error:`, error);
+                }
+                
+                // Wait before retry
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+            
+            throw lastError || new Error(`Failed to load image after ${retries} attempts`);
         }
 
         // Load stone photo with better error handling and iOS compatibility
@@ -706,13 +816,16 @@
             }
 
             try {
+                console.log("Starting to load stone photo for stone: ", stoneId);
+                
                 // First check if the stone has a feature photo in Firestore
                 const stoneDoc = await db.collection('stones').doc(stoneId).get();
                 const stoneData = stoneDoc.data() || {};
                 
                 let photoUrl = null;
                 
-                // Check if there's a feature photo URL in Firestore
+                // Try all available methods to get the photo URL
+                console.log("Looking for photo in Firestore data");
                 if (stoneData.featurePhoto && stoneData.featurePhoto.url) {
                     photoUrl = stoneData.featurePhoto.url;
                     console.log("Found photo in Firestore:", photoUrl);
@@ -720,9 +833,29 @@
                     // If not in Firestore, try to get it directly from Storage
                     try {
                         console.log("Checking Storage for photo: ", `stones/${stoneId}/${stoneId}`);
+                        
+                        // For iOS 17 and lower, we need to use a timeout to avoid hanging
                         const storageRef = storage.ref(`stones/${stoneId}/${stoneId}`);
-                        photoUrl = await storageRef.getDownloadURL();
-                        console.log("Found photo in Storage:", photoUrl);
+                        
+                        if (useLegacyMode) {
+                            // Use Promise.race with a timeout for legacy devices
+                            const downloadPromise = storageRef.getDownloadURL();
+                            const timeoutPromise = new Promise((_, reject) => {
+                                setTimeout(() => reject(new Error("Storage request timed out")), 10000);
+                            });
+                            
+                            try {
+                                photoUrl = await Promise.race([downloadPromise, timeoutPromise]);
+                                console.log("Found photo in Storage (with timeout):", photoUrl);
+                            } catch (timeoutError) {
+                                console.error("Storage request timed out or failed:", timeoutError);
+                                throw new Error("Storage request failed or timed out");
+                            }
+                        } else {
+                            // Standard approach for modern browsers
+                            photoUrl = await storageRef.getDownloadURL();
+                            console.log("Found photo in Storage:", photoUrl);
+                        }
                         
                         // Update Firestore with the photo URL for future reference
                         try {
@@ -745,31 +878,36 @@
                 const t = translations[currentLanguage];
                 
                 if (photoUrl) {
-                    // For iOS, we'll preload the image to make sure it loads properly
-                    if (isIOS) {
-                        const img = new Image();
-                        img.onload = function() {
+                    console.log("Attempting to display photo from URL:", photoUrl);
+                    
+                    if (useLegacyMode) {
+                        // For iOS 17 and lower, we'll preload the image to avoid rendering issues
+                        try {
+                            console.log("Using legacy mode to load image");
+                            const verifiedUrl = await loadImageWithRetry(photoUrl);
+                            
                             stonePhotoContainer.innerHTML = `
-                                <img src="${photoUrl}" alt="Stone #${stoneId}" class="stone-photo" 
-                                     onclick="openPhotoModal('${photoUrl}')">
+                                <img src="${verifiedUrl}" alt="Stone #${stoneId}" class="stone-photo" 
+                                     onclick="openPhotoModal('${verifiedUrl}')">
                             `;
-                        };
-                        img.onerror = function() {
-                            console.error("Failed to load stone photo on iOS");
+                            console.log("Legacy mode image loaded successfully");
+                        } catch (loadError) {
+                            console.error("Failed to load image in legacy mode:", loadError);
                             stonePhotoContainer.innerHTML = `
                                 <div class="stone-placeholder">
                                     <p style="color: #666; margin: 0; font-size: 0.9em;">${t.noPhotoAvailable}</p>
                                 </div>
                             `;
-                        };
-                        img.src = photoUrl;
+                        }
                     } else {
+                        // Standard approach for iOS 18+ and other browsers
                         stonePhotoContainer.innerHTML = `
                             <img src="${photoUrl}" alt="Stone #${stoneId}" class="stone-photo" 
                                  onclick="openPhotoModal('${photoUrl}')">
                         `;
                     }
                 } else {
+                    console.log("No photo URL found, displaying placeholder");
                     stonePhotoContainer.innerHTML = `
                         <div class="stone-placeholder">
                             <p style="color: #666; margin: 0; font-size: 0.9em;">${t.noPhotoAvailable}</p>
@@ -778,9 +916,10 @@
                 }
             } catch (error) {
                 console.error("Error loading stone photo:", error);
+                const t = translations[currentLanguage];
                 document.getElementById('stonePhotoContainer').innerHTML = `
                     <div class="stone-placeholder">
-                        <p style="color: #666; margin: 0; font-size: 0.9em;">Error loading stone photo</p>
+                        <p style="color: #666; margin: 0; font-size: 0.9em;">${t.noPhotoAvailable}</p>
                     </div>
                 `;
             }
@@ -841,7 +980,62 @@
             dashboardButton.href = `https://tiemej.github.io/Stone-dashboard-specific-stone/?stone=${stoneId}`;
         }
 
-        // Improved photo handling for iOS
+        // Helper function to resize images for faster upload and better compatibility
+        async function resizeImageForUpload(file) {
+            return new Promise((resolve, reject) => {
+                // Create an image element to load the file
+                const img = new Image();
+                img.onload = () => {
+                    // Create a canvas to draw the resized image
+                    const canvas = document.createElement('canvas');
+                    
+                    // Calculate new dimensions (max 1200px width/height)
+                    let width = img.width;
+                    let height = img.height;
+                    
+                    // For legacy mode, use an even smaller size to avoid memory issues
+                    const maxSize = useLegacyMode ? 800 : 1200;
+                    
+                    if (width > height && width > maxSize) {
+                        height = Math.round((height * maxSize) / width);
+                        width = maxSize;
+                    } else if (height > maxSize) {
+                        width = Math.round((width * maxSize) / height);
+                        height = maxSize;
+                    }
+                    
+                    // Set canvas dimensions
+                    canvas.width = width;
+                    canvas.height = height;
+                    
+                    // Draw the resized image
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    // Convert to blob with reduced quality for iOS
+                    canvas.toBlob(
+                        (blob) => {
+                            if (!blob) {
+                                reject(new Error("Failed to create blob"));
+                                return;
+                            }
+                            resolve(blob);
+                        },
+                        'image/jpeg',
+                        useLegacyMode ? 0.6 : 0.8 // Use lower quality for older devices
+                    );
+                };
+                
+                img.onerror = () => {
+                    reject(new Error("Failed to load image for resizing"));
+                };
+                
+                // Load the image from the file
+                img.src = URL.createObjectURL(file);
+            });
+        }
+
+        // Enhanced photo handling for iOS
         function handlePhotoSelect(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -856,26 +1050,21 @@
             // Hide any previous error messages
             document.getElementById('photoError').style.display = 'none';
             
-            // For iOS, we need to check file type and handle HEIC/HEIF formats
-            if (isIOS && (file.type === '' || file.type === 'image/heic' || file.type === 'image/heif')) {
-                console.log("iOS HEIC/HEIF image detected");
-                // We'll handle these during upload instead of preview, just store the file
-                selectedPhotoFile = file;
-                
-                // Show a placeholder for the preview
-                const preview = document.getElementById('photoPreview');
-                preview.style.display = 'block';
-                preview.src = 'data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22300%22%20height%3D%22200%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20300%20200%22%20preserveAspectRatio%3D%22none%22%3E%3Cdefs%3E%3Cstyle%20type%3D%22text%2Fcss%22%3E%23holder_17e45eb143a%20text%20%7B%20fill%3A%23AAAAAA%3Bfont-weight%3Abold%3Bfont-family%3AArial%2C%20Helvetica%2C%20Open%20Sans%2C%20sans-serif%2C%20monospace%3Bfont-size%3A15pt%20%7D%20%3C%2Fstyle%3E%3C%2Fdefs%3E%3Cg%20id%3D%22holder_17e45eb143a%22%3E%3Crect%20width%3D%22300%22%20height%3D%22200%22%20fill%3D%22%23EEEEEE%22%3E%3C%2Frect%3E%3Cg%3E%3Ctext%20x%3D%22110.5%22%20y%3D%22107.1%22%3EPhoto%20Selected%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fsvg%3E';
-                return;
-            }
-            
             // Create a new object URL for the preview
             objectURL = URL.createObjectURL(file);
             
             // Show preview
             const preview = document.getElementById('photoPreview');
             preview.style.display = 'block';
-            preview.src = objectURL;
+            
+            // For iOS 17 and lower, use a simpler approach to avoid crashes
+            if (useLegacyMode) {
+                // Use a placeholder for the preview to avoid memory issues
+                preview.src = 'data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22300%22%20height%3D%22200%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20300%20200%22%20preserveAspectRatio%3D%22none%22%3E%3Cdefs%3E%3Cstyle%20type%3D%22text%2Fcss%22%3E%23holder_17e45eb143a%20text%20%7B%20fill%3A%23AAAAAA%3Bfont-weight%3Abold%3Bfont-family%3AArial%2C%20Helvetica%2C%20Open%20Sans%2C%20sans-serif%2C%20monospace%3Bfont-size%3A15pt%20%7D%20%3C%2Fstyle%3E%3C%2Fdefs%3E%3Cg%20id%3D%22holder_17e45eb143a%22%3E%3Crect%20width%3D%22300%22%20height%3D%22200%22%20fill%3D%22%23EEEEEE%22%3E%3C%2Frect%3E%3Cg%3E%3Ctext%20x%3D%22110.5%22%20y%3D%22107.1%22%3EPhoto%20Selected%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fsvg%3E';
+            } else {
+                // Full preview for modern devices
+                preview.src = objectURL;
+            }
             
             // Store the file in our global variable 
             selectedPhotoFile = file;
@@ -907,9 +1096,10 @@
             }
         }
 
-        // Completely rewritten stone info loader with better image handling
         async function loadStoneInfo() {
             try {
+                console.log("Loading stone info for stone ID:", stoneId);
+                
                 // First check if the stone document exists
                 const stoneDoc = await db.collection('stones').doc(stoneId).get();
                 if (!stoneDoc.exists) {
@@ -918,6 +1108,7 @@
                         created: firebase.firestore.FieldValue.serverTimestamp(),
                         description: 'A happy stone spreading joy!'
                     });
+                    console.log("Created new stone document");
                 }
                 
                 // Load the stone photo
@@ -929,64 +1120,96 @@
                     const stoneData = stoneDoc.data() || {};
                     let photoUrl = null;
                     
+                    // Try Firestore first
+                    console.log("Looking for photo in Firestore data");
                     if (stoneData.featurePhoto && stoneData.featurePhoto.url) {
                         photoUrl = stoneData.featurePhoto.url;
+                        console.log("Found photo in Firestore:", photoUrl);
                     } else {
-                        // If not in Firestore, try Storage directly
+                        // If not in Firestore, try Storage directly with special handling for iOS
+                        console.log("Checking Storage for photo");
                         try {
                             const storageRef = storage.ref(`stones/${stoneId}/${stoneId}`);
-                            photoUrl = await storageRef.getDownloadURL();
+                            
+                            if (useLegacyMode) {
+                                // For iOS 17 and lower, use a timeout to avoid hanging
+                                const downloadPromise = storageRef.getDownloadURL();
+                                const timeoutPromise = new Promise((_, reject) => {
+                                    setTimeout(() => reject(new Error("Storage request timed out")), 10000);
+                                });
+                                
+                                try {
+                                    photoUrl = await Promise.race([downloadPromise, timeoutPromise]);
+                                    console.log("Found photo in Storage (with timeout):", photoUrl);
+                                } catch (timeoutError) {
+                                    console.error("Storage request timed out or failed:", timeoutError);
+                                    throw new Error("Storage request failed or timed out");
+                                }
+                            } else {
+                                // Standard approach for modern browsers
+                                photoUrl = await storageRef.getDownloadURL();
+                                console.log("Found photo in Storage:", photoUrl);
+                            }
                             
                             // Update Firestore for future reference
-                            try {
-                                await db.collection('stones').doc(stoneId).update({
-                                    featurePhoto: {
-                                        url: photoUrl,
-                                        uploadedAt: firebase.firestore.FieldValue.serverTimestamp()
-                                    }
-                                });
-                            } catch (updateError) {
-                                console.error("Error updating Firestore with photo URL:", updateError);
+                            if (photoUrl) {
+                                try {
+                                    await db.collection('stones').doc(stoneId).update({
+                                        featurePhoto: {
+                                            url: photoUrl,
+                                            uploadedAt: firebase.firestore.FieldValue.serverTimestamp()
+                                        }
+                                    });
+                                    console.log("Updated Firestore with photo URL");
+                                } catch (updateError) {
+                                    console.error("Error updating Firestore with photo URL:", updateError);
+                                }
                             }
                         } catch (storageError) {
-                            console.log("No feature photo found in Storage:", storageError);
+                            console.error("No feature photo found in Storage:", storageError);
                         }
                     }
                     
-                    // Special handling for iOS
-                    if (isIOS && photoUrl) {
-                        const img = new Image();
-                        img.onload = function() {
-                            stoneThumbnailContainer.innerHTML = `
-                                <img src="${photoUrl}" alt="Stone #${stoneId}" class="stone-thumbnail" 
-                                     onclick="openPhotoModal('${photoUrl}')">
-                            `;
-                        };
-                        img.onerror = function() {
-                            console.error("Failed to load stone thumbnail on iOS");
-                            const t = translations[currentLanguage];
-                            stoneThumbnailContainer.innerHTML = `
-                                <div class="stone-placeholder">
-                                    <p style="color: #666; margin: 0; font-size: 0.8em; text-align: center;">Stone #${stoneId}</p>
-                                </div>
-                            `;
-                        };
-                        img.src = photoUrl;
-                    } else {
-                        // Display the photo or a placeholder
-                        if (photoUrl) {
+                    // Display the photo based on device capabilities
+                    const t = translations[currentLanguage];
+                    
+                    if (photoUrl) {
+                        console.log("Attempting to display photo from URL:", photoUrl);
+                        
+                        if (useLegacyMode) {
+                            // For iOS 17 and lower, we'll preload the image
+                            try {
+                                console.log("Using legacy mode to load thumbnail");
+                                const verifiedUrl = await loadImageWithRetry(photoUrl);
+                                
+                                stoneThumbnailContainer.innerHTML = `
+                                    <img src="${verifiedUrl}" alt="Stone #${stoneId}" class="stone-thumbnail" 
+                                         onclick="openPhotoModal('${verifiedUrl}')">
+                                `;
+                                console.log("Legacy mode thumbnail loaded successfully");
+                            } catch (loadError) {
+                                console.error("Failed to load thumbnail in legacy mode:", loadError);
+                                stoneThumbnailContainer.innerHTML = `
+                                    <div class="stone-placeholder">
+                                        <p style="color: #666; margin: 0; font-size: 0.8em; text-align: center;">Stone #${stoneId}</p>
+                                    </div>
+                                `;
+                            }
+                        } else {
+                            // Standard approach for iOS 18+ and other browsers
                             stoneThumbnailContainer.innerHTML = `
                                 <img src="${photoUrl}" alt="Stone #${stoneId}" class="stone-thumbnail" 
                                     onclick="openPhotoModal('${photoUrl}')">
                             `;
-                        } else {
-                            // Simple placeholder if no photo
-                            stoneThumbnailContainer.innerHTML = `
-                                <div class="stone-placeholder">
-                                    <p style="color: #666; margin: 0; font-size: 0.8em; text-align: center;">Stone #${stoneId}</p>
-                                </div>
-                            `;
                         }
+                    } else {
+                        // Simple placeholder if no photo
+                        console.log("No photo URL found, displaying placeholder");
+                        stoneThumbnailContainer.innerHTML = `
+                            <div class="stone-placeholder">
+                                <p style="color: #666; margin: 0; font-size: 0.8em; text-align: center;">Stone #${stoneId}</p>
+                            </div>
+                        `;
                     }
                 } catch (photoError) {
                     console.error("Error loading stone photo:", photoError);
@@ -1021,60 +1244,7 @@
             }
         }
 
-        // Helper function to resize images for faster upload
-        async function resizeImageForUpload(file) {
-            return new Promise((resolve, reject) => {
-                // Create an image element to load the file
-                const img = new Image();
-                img.onload = () => {
-                    // Create a canvas to draw the resized image
-                    const canvas = document.createElement('canvas');
-                    
-                    // Calculate new dimensions (max 1200px width/height)
-                    let width = img.width;
-                    let height = img.height;
-                    const maxSize = 1200;
-                    
-                    if (width > height && width > maxSize) {
-                        height = Math.round((height * maxSize) / width);
-                        width = maxSize;
-                    } else if (height > maxSize) {
-                        width = Math.round((width * maxSize) / height);
-                        height = maxSize;
-                    }
-                    
-                    // Set canvas dimensions
-                    canvas.width = width;
-                    canvas.height = height;
-                    
-                    // Draw the resized image
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, width, height);
-                    
-                    // Convert to blob with reduced quality for iOS
-                    canvas.toBlob(
-                        (blob) => {
-                            if (!blob) {
-                                reject(new Error("Failed to create blob"));
-                                return;
-                            }
-                            resolve(blob);
-                        },
-                        'image/jpeg',
-                        0.75 // Use lower quality for smaller file size
-                    );
-                };
-                
-                img.onerror = () => {
-                    reject(new Error("Failed to load image for resizing"));
-                };
-                
-                // Load the image from the file
-                img.src = URL.createObjectURL(file);
-            });
-        }
-
-        // Completely rewritten submission function for iOS compatibility
+        // Completely rewritten submission function with iOS 17 compatibility
         async function submitStoneJourney() {
             // Show a loading indicator
             const submitButton = document.getElementById('submitButton');
@@ -1128,80 +1298,188 @@
                     }
                 } catch (coordError) {
                     console.error('Could not get coordinates:', coordError);
+                    // Continue without coordinates
                 }
 
-                // Handle photo if present - completely rewritten for iOS compatibility
+                // Handle photo upload with different strategies based on iOS version
                 if (selectedPhotoFile) {
-                    console.log("Photo selected for upload:", selectedPhotoFile.type);
+                    console.log("Photo selected for upload:", selectedPhotoFile.type, "Size:", selectedPhotoFile.size);
                     
                     try {
                         // Generate a unique filename
                         const fileExtension = selectedPhotoFile.name?.split('.').pop() || 'jpg';
                         const filename = `${journeyId}_${Date.now()}.${fileExtension}`;
+                        console.log("Generated filename:", filename);
                         
                         // Create a reference to the storage location
                         const photoRef = storage.ref(`stones/${stoneId}/photos/${filename}`);
                         
-                        // For iOS, we'll always resize and convert to JPEG
-                        const photoToUpload = await resizeImageForUpload(selectedPhotoFile);
-                        console.log("Processed photo for upload, size:", photoToUpload.size);
+                        // Show progress indicator
+                        const progressContainer = document.querySelector('.photo-progress');
+                        const progressBar = document.querySelector('.progress-bar');
+                        if (progressContainer && progressBar) {
+                            progressContainer.style.display = 'block';
+                            progressBar.style.width = '10%';
+                        }
                         
-                        // Upload the processed photo
-                        const uploadTask = photoRef.put(photoToUpload);
-                        
-                        // Monitor upload progress (especially important for iOS)
-                        uploadTask.on(
-                            'state_changed',
-                            (snapshot) => {
-                                // Show progress
-                                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                                console.log(`Upload progress: ${progress.toFixed(1)}%`);
+                        // For iOS 17 and lower, use a completely different approach
+                        if (useLegacyMode) {
+                            console.log("Using legacy mode for photo upload");
+                            
+                            try {
+                                // Resize and compress the image first
+                                console.log("Resizing image for legacy upload");
+                                const resizedImage = await resizeImageForUpload(selectedPhotoFile);
+                                console.log("Image resized successfully, size:", resizedImage.size);
                                 
-                                // Update progress bar if needed
-                                const progressBar = document.querySelector('.progress-bar');
-                                const progressContainer = document.querySelector('.photo-progress');
+                                if (progressBar) progressBar.style.width = '30%';
                                 
-                                if (progressBar && progressContainer) {
-                                    progressContainer.style.display = 'block';
-                                    progressBar.style.width = `${progress}%`;
-                                }
-                            },
-                            (error) => {
-                                // Handle unsuccessful uploads
-                                console.error("Upload failed:", error);
-                                throw new Error("Failed to upload photo: " + error.message);
-                            },
-                            async () => {
-                                // Handle successful upload
-                                const photoURL = await photoRef.getDownloadURL();
-                                console.log("Upload complete. Photo URL:", photoURL);
+                                // Use a chunkable upload with a timeout
+                                console.log("Starting chunked upload with timeout");
                                 
-                                // Add photo data to journey data
-                                journeyData.photoData = {
-                                    filename: filename,
-                                    url: photoURL,
-                                    uploadTimestamp: firebase.firestore.FieldValue.serverTimestamp()
-                                };
+                                const uploadTask = photoRef.put(resizedImage);
                                 
-                                // The upload completed successfully, now save to Firestore
+                                // Set up a timeout in case the upload hangs
+                                const uploadTimeout = setTimeout(() => {
+                                    console.error("Upload timed out, cancelling");
+                                    try {
+                                        uploadTask.cancel();
+                                    } catch (e) {
+                                        console.error("Error cancelling upload:", e);
+                                    }
+                                }, 30000); // 30 second timeout
+                                
+                                // Monitor progress
+                                uploadTask.on('state_changed', 
+                                    (snapshot) => {
+                                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                                        console.log(`Upload progress: ${progress.toFixed(1)}%`);
+                                        if (progressBar) {
+                                            progressBar.style.width = `${30 + (progress * 0.4)}%`; // 30-70% of the total process
+                                        }
+                                    },
+                                    (error) => {
+                                        clearTimeout(uploadTimeout);
+                                        console.error("Upload failed:", error);
+                                        throw error;
+                                    },
+                                    async () => {
+                                        clearTimeout(uploadTimeout);
+                                        console.log("Upload completed successfully");
+                                        if (progressBar) progressBar.style.width = '70%';
+                                        
+                                        // Get the download URL with a timeout
+                                        try {
+                                            const downloadUrlPromise = photoRef.getDownloadURL();
+                                            const timeoutPromise = new Promise((_, reject) => {
+                                                setTimeout(() => reject(new Error("Get download URL timed out")), 10000);
+                                            });
+                                            
+                                            const photoURL = await Promise.race([downloadUrlPromise, timeoutPromise]);
+                                            console.log("Got photo URL:", photoURL);
+                                            
+                                            if (progressBar) progressBar.style.width = '90%';
+                                            
+                                            // Add photo data to journey data
+                                            journeyData.photoData = {
+                                                filename: filename,
+                                                url: photoURL,
+                                                uploadTimestamp: firebase.firestore.FieldValue.serverTimestamp()
+                                            };
+                                            
+                                            // Save journey data
+                                            await finalizeJourneySubmission(journeyData);
+                                        } catch (urlError) {
+                                            console.error("Failed to get download URL:", urlError);
+                                            // Continue without photo
+                                            await finalizeJourneySubmission(journeyData);
+                                        }
+                                    }
+                                );
+                                
+                                // Return early since the completion handler will call finalizeJourneySubmission
+                                return;
+                                
+                            } catch (legacyError) {
+                                console.error("Legacy mode upload failed:", legacyError);
+                                
+                                // Show error but continue without photo
+                                showError('photoError', t.photoUploadError);
+                                
+                                // Continue with submission without photo
                                 await finalizeJourneySubmission(journeyData);
+                                return;
                             }
-                        );
-                        
-                        // Return early as the upload completion handler will finalize the submission
-                        return;
-                        
+                        } else {
+                            // Modern approach for iOS 18+ and other browsers
+                            console.log("Using standard upload for modern devices");
+                            
+                            // Resize the image for better upload performance
+                            const processedImage = await resizeImageForUpload(selectedPhotoFile);
+                            console.log("Image processed for upload, size:", processedImage.size);
+                            
+                            if (progressBar) progressBar.style.width = '30%';
+                            
+                            // Upload the processed image
+                            const uploadTask = photoRef.put(processedImage);
+                            
+                            // Monitor progress
+                            uploadTask.on(
+                                'state_changed',
+                                (snapshot) => {
+                                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                                    console.log(`Upload progress: ${progress.toFixed(1)}%`);
+                                    if (progressBar) {
+                                        progressBar.style.width = `${30 + (progress * 0.4)}%`; // 30-70% of total process
+                                    }
+                                },
+                                (error) => {
+                                    console.error("Upload failed:", error);
+                                    showError('photoError', t.photoUploadError);
+                                    // Continue without photo
+                                    finalizeJourneySubmission(journeyData);
+                                },
+                                async () => {
+                                    console.log("Upload completed successfully");
+                                    if (progressBar) progressBar.style.width = '70%';
+                                    
+                                    try {
+                                        // Get the download URL
+                                        const photoURL = await photoRef.getDownloadURL();
+                                        console.log("Got photo URL:", photoURL);
+                                        
+                                        if (progressBar) progressBar.style.width = '90%';
+                                        
+                                        // Add photo data to journey data
+                                        journeyData.photoData = {
+                                            filename: filename,
+                                            url: photoURL,
+                                            uploadTimestamp: firebase.firestore.FieldValue.serverTimestamp()
+                                        };
+                                        
+                                        // Save to Firestore
+                                        await finalizeJourneySubmission(journeyData);
+                                    } catch (urlError) {
+                                        console.error("Failed to get download URL:", urlError);
+                                        showError('photoError', t.photoUploadError);
+                                        // Continue without photo
+                                        await finalizeJourneySubmission(journeyData);
+                                    }
+                                }
+                            );
+                            
+                            // Return early as the upload completion handler will call finalizeJourneySubmission
+                            return;
+                        }
                     } catch (photoError) {
                         console.error('Photo upload failed:', photoError);
                         showError('photoError', t.photoUploadError);
                         
-                        // Continue without the photo
-                        console.log("Continuing submission without photo");
+                        // Continue with submission without photo
                     }
                 }
                 
-                // If we reach here, either there was no photo or the photo upload failed
-                // Continue with submission without photo
+                // If we reach here, either there was no photo or the photo handler set up its own completion
                 await finalizeJourneySubmission(journeyData);
                 
             } catch (error) {
@@ -1216,9 +1494,19 @@
         
         // Helper function to complete the journey submission
         async function finalizeJourneySubmission(journeyData) {
+            const t = translations[currentLanguage];
+            
             try {
+                console.log("Finalizing journey submission:", journeyData);
+                
+                // Update progress indicator if it exists
+                const progressBar = document.querySelector('.progress-bar');
+                if (progressBar) {
+                    progressBar.style.width = '95%';
+                }
+                
                 // Save the journey to Firestore
-                console.log("Saving journey data to Firestore:", journeyData);
+                console.log("Saving journey data to Firestore");
                 await db.collection('stones').doc(stoneId).collection('journeys').doc(journeyData.journeyId).set(journeyData);
                 console.log("Journey saved successfully");
 
@@ -1243,31 +1531,67 @@
                 }
                 
                 // Show success by moving to next section
+                console.log("Submission complete, showing section 4");
                 showSection(4);
                 loadJourneys();
                 
             } catch (error) {
                 console.error("Error finalizing journey submission:", error);
-                const t = translations[currentLanguage];
                 showError('submitError', t.formSubmitError);
                 
                 // Re-enable the submit button
                 const submitButton = document.getElementById('submitButton');
-                submitButton.textContent = t[currentLanguage].submit;
+                submitButton.textContent = t.submit;
                 submitButton.disabled = false;
+                
+                // Reset progress indicators
+                const progressContainer = document.querySelector('.photo-progress');
+                if (progressContainer) {
+                    progressContainer.style.display = 'none';
+                }
             }
         }
 
+        // Load journeys with improved handling for iOS
         async function loadJourneys() {
             const journeyCards = document.getElementById('journeyCards');
             const t = translations[currentLanguage];
             journeyCards.innerHTML = '';
             
             try {
-                const snapshot = await db.collection('stones').doc(stoneId)
-                    .collection('journeys')
-                    .orderBy('timestamp', 'desc')
-                    .get();
+                console.log("Loading journeys for stone:", stoneId);
+                
+                // For iOS 17 and lower, use a smaller batch size and add a timeout
+                let snapshot;
+                if (useLegacyMode) {
+                    console.log("Using legacy mode for journey loading");
+                    
+                    const journeyPromise = db.collection('stones').doc(stoneId)
+                        .collection('journeys')
+                        .orderBy('timestamp', 'desc')
+                        .limit(20) // Limit to 20 entries for performance
+                        .get();
+                    
+                    const timeoutPromise = new Promise((_, reject) => {
+                        setTimeout(() => reject(new Error("Journey loading timed out")), 10000);
+                    });
+                    
+                    try {
+                        snapshot = await Promise.race([journeyPromise, timeoutPromise]);
+                        console.log("Loaded journeys with timeout:", snapshot.size);
+                    } catch (timeoutError) {
+                        console.error("Journey loading timed out:", timeoutError);
+                        journeyCards.innerHTML = '<p>Could not load journey history. Please try again later.</p>';
+                        return;
+                    }
+                } else {
+                    // Standard approach for modern browsers
+                    snapshot = await db.collection('stones').doc(stoneId)
+                        .collection('journeys')
+                        .orderBy('timestamp', 'desc')
+                        .get();
+                    console.log("Loaded journeys:", snapshot.size);
+                }
 
                 document.getElementById('journeyStats').innerHTML = t.journeyCount.replace('{count}', snapshot.size);
                 
@@ -1275,6 +1599,7 @@
                     currentMap.remove();
                 }
 
+                // Initialize Leaflet map
                 currentMap = L.map('journeyMap', {
                     minZoom: 2,
                     maxZoom: 19,
@@ -1293,28 +1618,78 @@
 
                 // Process journey data in chronological order (oldest first)
                 const orderedDocs = [...snapshot.docs].reverse();
+                console.log("Processing journeys in chronological order");
                 
-                for (const doc of orderedDocs) {
-                    const data = doc.data();
+                // Use a more efficient approach for iOS 17 and lower
+                if (useLegacyMode) {
+                    console.log("Using efficient coordinate handling for legacy mode");
                     
-                    let coords = data.coordinates;
-                    if (!coords && data.location) {
-                        coords = await getCoordinates(data.location);
+                    // Process all docs with coordinates first
+                    for (const doc of orderedDocs) {
+                        const data = doc.data();
+                        
+                        if (data.coordinates && data.coordinates.lat && data.coordinates.lon) {
+                            coordinates.push([data.coordinates.lat, data.coordinates.lon]);
+                            bounds.extend([data.coordinates.lat, data.coordinates.lon]);
+                            
+                            journeyPoints.push({
+                                coordinates: [data.coordinates.lat, data.coordinates.lon],
+                                data: data
+                            });
+                        }
                     }
                     
-                    if (coords) {
-                        coordinates.push([coords.lat, coords.lon]);
-                        bounds.extend([coords.lat, coords.lon]);
+                    // Only process a limited number of docs without coordinates
+                    const docsWithoutCoords = orderedDocs.filter(doc => 
+                        !doc.data().coordinates || !doc.data().coordinates.lat || !doc.data().coordinates.lon
+                    ).slice(0, 5); // Only process the first 5 to avoid too many geocoding requests
+                    
+                    for (const doc of docsWithoutCoords) {
+                        const data = doc.data();
                         
-                        // Store journey point data for creating markers
-                        journeyPoints.push({
-                            coordinates: [coords.lat, coords.lon],
-                            data: data
-                        });
+                        if (data.location) {
+                            try {
+                                const coords = await getCoordinates(data.location);
+                                if (coords) {
+                                    coordinates.push([coords.lat, coords.lon]);
+                                    bounds.extend([coords.lat, coords.lon]);
+                                    
+                                    journeyPoints.push({
+                                        coordinates: [coords.lat, coords.lon],
+                                        data: data
+                                    });
+                                }
+                            } catch (error) {
+                                console.error("Error getting coordinates for location:", data.location, error);
+                                // Continue without coordinates
+                            }
+                        }
+                    }
+                } else {
+                    // Standard approach for modern browsers
+                    for (const doc of orderedDocs) {
+                        const data = doc.data();
+                        
+                        let coords = data.coordinates;
+                        if (!coords && data.location) {
+                            coords = await getCoordinates(data.location);
+                        }
+                        
+                        if (coords) {
+                            coordinates.push([coords.lat, coords.lon]);
+                            bounds.extend([coords.lat, coords.lon]);
+                            
+                            journeyPoints.push({
+                                coordinates: [coords.lat, coords.lon],
+                                data: data
+                            });
+                        }
                     }
                 }
 
                 if (coordinates.length > 0) {
+                    console.log("Creating map with", coordinates.length, "points");
+                    
                     // Create the journey polyline with dashed styling
                     const path = L.polyline(coordinates, {
                         color: '#3498db',
@@ -1330,23 +1705,37 @@
                         const isFinalPoint = index === journeyPoints.length - 1;
                         const data = point.data;
                         
-                        // Create popup content
-                        let popupContent = `
-                            <div style="max-width: 200px;">
-                                <b>${t.foundIn} ${data.location}</b>
-                                <p style="margin: 5px 0;">${data.message}</p>
-                        `;
+                        // Special handling for image URLs in popups on older iOS
+                        let popupContent;
                         
-                        if (data.photoData && data.photoData.url) {
-                            popupContent += `
-                                <img src="${data.photoData.url}" 
-                                    style="width: 100%; border-radius: 4px; margin-top: 5px; cursor: pointer;"
-                                    onclick="openPhotoModal('${data.photoData.url}')"
-                                >
+                        if (useLegacyMode && data.photoData && data.photoData.url) {
+                            // For iOS 17 and lower, don't include images in popups to avoid memory issues
+                            popupContent = `
+                                <div style="max-width: 200px;">
+                                    <b>${t.foundIn} ${data.location}</b>
+                                    <p style="margin: 5px 0;">${data.message}</p>
+                                    <p style="margin: 5px 0;"><a href="#" onclick="openPhotoModal('${data.photoData.url}'); return false;">View Photo</a></p>
+                                </div>
                             `;
+                        } else {
+                            // Standard approach for modern browsers
+                            popupContent = `
+                                <div style="max-width: 200px;">
+                                    <b>${t.foundIn} ${data.location}</b>
+                                    <p style="margin: 5px 0;">${data.message}</p>
+                            `;
+                            
+                            if (data.photoData && data.photoData.url) {
+                                popupContent += `
+                                    <img src="${data.photoData.url}" 
+                                        style="width: 100%; border-radius: 4px; margin-top: 5px; cursor: pointer;"
+                                        onclick="openPhotoModal('${data.photoData.url}')"
+                                    >
+                                `;
+                            }
+                            
+                            popupContent += '</div>';
                         }
-                        
-                        popupContent += '</div>';
                         
                         // Create a numbered marker
                         const markerIcon = L.divIcon({
@@ -1369,8 +1758,13 @@
                     });
                 }
 
-                // Create journey cards (in reverse chronological order - newest first)
-                snapshot.docs.forEach((doc) => {
+                // Create journey cards with optimizations for iOS
+                console.log("Creating journey cards");
+                
+                const maxCards = useLegacyMode ? 10 : snapshot.size; // Limit cards for legacy mode
+                const docsToProcess = snapshot.docs.slice(0, maxCards);
+                
+                docsToProcess.forEach((doc, index) => {
                     const data = doc.data();
                     const date = data.timestamp ? data.timestamp.toDate().toLocaleDateString() : 'Recent';
                     const card = document.createElement('div');
@@ -1378,7 +1772,19 @@
                     
                     let photoHtml = '';
                     if (data.photoData && data.photoData.url) {
-                        photoHtml = `<img src="${data.photoData.url}" alt="Stone location" class="journey-photo" onclick="openPhotoModal('${data.photoData.url}')">`;
+                        if (useLegacyMode) {
+                            // For iOS 17 and lower, use a link instead of embedding the image
+                            photoHtml = `
+                                <div style="text-align: center; margin: 10px 0;">
+                                    <a href="#" onclick="openPhotoModal('${data.photoData.url}'); return false;">
+                                        View Photo
+                                    </a>
+                                </div>
+                            `;
+                        } else {
+                            // Standard approach for modern browsers
+                            photoHtml = `<img src="${data.photoData.url}" alt="Stone location" class="journey-photo" onclick="openPhotoModal('${data.photoData.url}')">`;
+                        }
                     }
                     
                     card.innerHTML = `
@@ -1389,13 +1795,24 @@
                     `;
                     journeyCards.appendChild(card);
                 });
+                
+                if (maxCards < snapshot.size) {
+                    // Add a message about limited history
+                    const limitMessage = document.createElement('p');
+                    limitMessage.textContent = `Showing ${maxCards} of ${snapshot.size} entries for better performance.`;
+                    limitMessage.style.textAlign = 'center';
+                    limitMessage.style.fontStyle = 'italic';
+                    limitMessage.style.color = '#666';
+                    journeyCards.appendChild(limitMessage);
+                }
 
             } catch (error) {
                 console.error("Error loading journeys:", error);
+                journeyCards.innerHTML = '<p>Could not load journey history. Please try again later.</p>';
             }
         }
 
-        // Event listeners for modals
+        // Event listeners for modals with iOS fixes
         document.getElementById('photoModal').addEventListener('click', function(e) {
             if (e.target === this) {
                 closePhotoModal();
@@ -1411,7 +1828,11 @@
 
         // Initialize app and set up event listeners
         document.addEventListener('DOMContentLoaded', function() {
-            console.log("App initializing, detected iOS:", isIOS);
+            console.log("Document loaded, initializing app");
+            console.log("Device info - iOS:", isIOS, "Version:", iOSVersion, "Legacy Mode:", useLegacyMode);
+            
+            // Show version info
+            showVersionInfo();
             
             // Load stone photo
             loadStonePhoto();
