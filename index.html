@@ -1445,9 +1445,9 @@
                         // Standard approach for modern browsers
                         resultContainer.innerHTML = `
                             <div style="text-align: center; margin: 15px 0;">
-                                <img src="${photoUrl}" alt="Random stone #${randomStone.id}" class="random-stone-photo">
-                                <p style="margin: 10px 0;">Stone #${randomStone.id}</p>
-                                <button class="follow-journey-btn" onclick="window.location.href='?stone=${randomStone.id}'">
+                                <img src="${photoUrl}" alt="Random stone #${randomStone.id}" class="random-stone-photo" onclick="openPhotoModal('${photoUrl}')">
+                                <p style="margin: 10px 0;">#${randomStone.id}</p>
+                                <button class="follow-journey-btn" onclick="window.open('?stone=${randomStone.id}', '_blank')">
                                     <span class="emoji-icon">🧭</span> Follow my journey
                                 </button>
                             </div>
@@ -1457,10 +1457,10 @@
                     resultContainer.innerHTML = `
                         <div style="text-align: center; margin: 15px 0;">
                             <div class="stone-placeholder">
-                                <p style="color: rgba(0,0,0,0.5); margin: 0; font-size: 0.9em;">Stone #${randomStone.id}</p>
+                                <p style="color: rgba(0,0,0,0.5); margin: 0; font-size: 0.9em;">#${randomStone.id}</p>
                             </div>
-                            <p style="margin: 10px 0;">Stone #${randomStone.id}</p>
-                            <button class="follow-journey-btn" onclick="window.location.href='?stone=${randomStone.id}'">
+                            <p style="margin: 10px 0;">#${randomStone.id}</p>
+                            <button class="follow-journey-btn" onclick="window.open('?stone=${randomStone.id}', '_blank')">
                                 <span class="emoji-icon">🧭</span> Follow my journey
                             </button>
                         </div>
