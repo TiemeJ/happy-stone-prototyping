@@ -754,7 +754,7 @@
             document.body.classList.remove('modal-open');
         }
 
-        // Helper function to load image with retries - for improved reliability on iOS
+        // Enhanced function to load image with retries - for improved reliability on iOS
         async function loadImageWithRetry(url, retries = 3, delay = 1000) {
             let lastError = null;
             
@@ -762,13 +762,37 @@
                 try {
                     console.log(`Attempt ${i+1} to load image: ${url}`);
                     
-                    // For legacy mode, use a simpler approach
+                    // For legacy mode, use a simpler approach with explicit caching control
                     if (useLegacyMode) {
                         return new Promise((resolve, reject) => {
                             const img = new Image();
-                            img.onload = () => resolve(url);
-                            img.onerror = (e) => reject(new Error(`Failed to load image: ${e.message}`));
-                            img.src = url;
+                            
+                            // Add a unique timestamp to URL to avoid iOS caching issues
+                            const cacheBuster = `?t=${new Date().getTime()}`;
+                            const urlWithCacheBuster = url.includes('?') ? 
+                                `${url}&_cb=${new Date().getTime()}` : 
+                                `${url}?_cb=${new Date().getTime()}`;
+                            
+                            // Set crossOrigin to anonymous to avoid CORS issues
+                            img.crossOrigin = "anonymous";
+                            
+                            // Add timeout to prevent hanging
+                            const timeout = setTimeout(() => {
+                                reject(new Error('Image loading timeout'));
+                            }, 5000);
+                            
+                            img.onload = () => {
+                                clearTimeout(timeout);
+                                resolve(url); // Return original URL without cache buster
+                            };
+                            
+                            img.onerror = (e) => {
+                                clearTimeout(timeout);
+                                console.error(`Image load error: ${e.message || 'Unknown error'}`);
+                                reject(new Error(`Failed to load image: ${e.message || 'Unknown error'}`));
+                            };
+                            
+                            img.src = urlWithCacheBuster;
                         });
                     }
                     
@@ -1692,7 +1716,7 @@
             }
         }
 
-        // Load journeys with improved handling for iOS and Firebase v8 syntax
+        // Updated loadJourneys function with direct image display for legacy mode
         async function loadJourneys() {
             const journeyCards = document.getElementById('journeyCards');
             const t = translations[currentLanguage];
@@ -1858,41 +1882,9 @@
                     }).addTo(currentMap);
 
                     // Add numbered markers for each location
-                    journeyPoints.forEach((point, index) => {
+                    for (const [index, point] of journeyPoints.entries()) {
                         const isFinalPoint = index === journeyPoints.length - 1;
                         const data = point.data;
-                        
-                        // Special handling for image URLs in popups on older iOS
-                        let popupContent;
-                        
-                        if (useLegacyMode && data.photoData && data.photoData.url) {
-                            // For iOS 17 and lower, don't include images in popups to avoid memory issues
-                            popupContent = `
-                                <div style="max-width: 200px;">
-                                    <b>${t.foundIn} ${data.location}</b>
-                                    <p style="margin: 5px 0;">${data.message}</p>
-                                    <p style="margin: 5px 0;"><a href="#" onclick="openPhotoModal('${data.photoData.url}'); return false;">View Photo</a></p>
-                                </div>
-                            `;
-                        } else {
-                            // Standard approach for modern browsers
-                            popupContent = `
-                                <div style="max-width: 200px;">
-                                    <b>${t.foundIn} ${data.location}</b>
-                                    <p style="margin: 5px 0;">${data.message}</p>
-                            `;
-                            
-                            if (data.photoData && data.photoData.url) {
-                                popupContent += `
-                                    <img src="${data.photoData.url}" 
-                                        style="width: 100%; border-radius: 4px; margin-top: 5px; cursor: pointer;"
-                                        onclick="openPhotoModal('${data.photoData.url}')"
-                                    >
-                                `;
-                            }
-                            
-                            popupContent += '</div>';
-                        }
                         
                         // Create a numbered marker
                         const markerIcon = L.divIcon({
@@ -1902,11 +1894,51 @@
                             iconAnchor: [14, 14]
                         });
                         
+                        // Prepare popup content
+                        let popupContent = `
+                            <div style="max-width: 200px;">
+                                <b>${t.foundIn} ${data.location}</b>
+                                <p style="margin: 5px 0;">${data.message}</p>
+                        `;
+                        
+                        // Add photo to popup - preload for legacy mode
+                        if (data.photoData && data.photoData.url) {
+                            if (useLegacyMode) {
+                                try {
+                                    // For iOS 17 and lower, preload the image first to ensure it can be displayed
+                                    const verifiedUrl = await loadImageWithRetry(data.photoData.url);
+                                    popupContent += `
+                                        <img src="${verifiedUrl}" 
+                                            style="width: 100%; border-radius: 4px; margin-top: 5px; cursor: pointer;"
+                                            onclick="openPhotoModal('${verifiedUrl}')"
+                                            alt="Stone location"
+                                        >
+                                    `;
+                                } catch (loadError) {
+                                    console.error("Failed to preload image for popup:", loadError);
+                                    popupContent += `
+                                        <p style="margin: 5px 0;"><a href="#" onclick="openPhotoModal('${data.photoData.url}'); return false;">View Photo</a></p>
+                                    `;
+                                }
+                            } else {
+                                // Standard approach for modern browsers
+                                popupContent += `
+                                    <img src="${data.photoData.url}" 
+                                        style="width: 100%; border-radius: 4px; margin-top: 5px; cursor: pointer;"
+                                        onclick="openPhotoModal('${data.photoData.url}')"
+                                        alt="Stone location"
+                                    >
+                                `;
+                            }
+                        }
+                        
+                        popupContent += '</div>';
+                        
                         // Add the marker with popup
                         L.marker(point.coordinates, {
                             icon: markerIcon
                         }).bindPopup(popupContent).addTo(currentMap);
-                    });
+                    }
 
                     // Fit map to show all markers
                     currentMap.fitBounds(bounds, {
@@ -1921,7 +1953,8 @@
                 const maxCards = useLegacyMode ? 10 : docs.length; // Limit cards for legacy mode
                 const docsToProcess = docs.slice(0, maxCards);
                 
-                docsToProcess.forEach((doc, index) => {
+                // Process each journey card
+                for (const [index, doc] of docsToProcess.entries()) {
                     const data = doc.data();
                     
                     // Handle timestamp formatting - Firebase v8 returns different timestamp objects
@@ -1939,17 +1972,24 @@
                     const card = document.createElement('div');
                     card.className = 'card';
                     
+                    // Handle photo display
                     let photoHtml = '';
                     if (data.photoData && data.photoData.url) {
                         if (useLegacyMode) {
-                            // For iOS 17 and lower, use a link instead of embedding the image
-                            photoHtml = `
-                                <div style="text-align: center; margin: 10px 0;">
-                                    <a href="#" onclick="openPhotoModal('${data.photoData.url}'); return false;">
-                                        View Photo
-                                    </a>
-                                </div>
-                            `;
+                            try {
+                                // For iOS 17 and lower, preload the image first to ensure it can be displayed
+                                const verifiedUrl = await loadImageWithRetry(data.photoData.url);
+                                photoHtml = `<img src="${verifiedUrl}" alt="Stone location" class="journey-photo" onclick="openPhotoModal('${verifiedUrl}')">`;
+                            } catch (loadError) {
+                                console.error("Failed to preload image for journey card:", loadError);
+                                photoHtml = `
+                                    <div style="text-align: center; margin: 10px 0;">
+                                        <a href="#" onclick="openPhotoModal('${data.photoData.url}'); return false;">
+                                            View Photo
+                                        </a>
+                                    </div>
+                                `;
+                            }
                         } else {
                             // Standard approach for modern browsers
                             photoHtml = `<img src="${data.photoData.url}" alt="Stone location" class="journey-photo" onclick="openPhotoModal('${data.photoData.url}')">`;
@@ -1963,7 +2003,7 @@
                         <p class="timestamp">${t.sharedOn} ${dateText}</p>
                     `;
                     journeyCards.appendChild(card);
-                });
+                }
                 
                 if (maxCards < docs.length) {
                     // Add a message about limited history
